@@ -1,0 +1,3164 @@
+{% extends "base.html" %} {% load static %} {% block content %}
+<style>
+   .modexp-list {
+   transition: opacity 0.15s;
+   opacity: 1;
+   }
+   .main {
+   overflow: auto; /* or scroll, if you always want it enabled */
+   /* Hide scrollbar for Chrome, Safari, Edge */
+   scrollbar-width: none; /* Firefox */
+   -ms-overflow-style: none; /* IE 10+ */
+   }
+   .main::-webkit-scrollbar {
+   display: none; /* Chrome, Safari */
+   }
+   #usersTable td div[id^="modexp-"].show {
+   display: block;
+   }
+   #usersTable td div[id^="modexp-"] {
+   display: none;
+   margin-top: 0.3em;
+   background: #f8fafc;
+   border: 1px solid #e5e7eb;
+   border-radius: 6px;
+   padding: 0.3em 0.7em;
+   font-size: 0.97em;
+   position: relative;
+   z-index: 2;
+   }
+   #usersTable td div[id^="modexp-"].show {
+   display: block;
+   }
+   #usersTable {
+   border-collapse: collapse;
+   width: 100%;
+   }
+   #usersTable th, #usersTable td {
+   border: 1px solid #d1d5db !important;
+   }
+   #usersTable th {
+   background: #028084;
+   font-weight: 600;
+   color: #fefefe;
+   }
+   #usersTable tr:hover {
+   background: #f8fafc;
+   }
+   /* --- Innovative Breadcrumb Styles --- */
+   .breadcrumb-steps {
+   display: flex;
+   justify-content: center;
+   align-items: center;
+   gap: 0;
+   border-radius: 2.5em;
+   padding: 5px;
+   position: relative;
+   margin-bottom: 2.2em;
+   min-width: 340px;
+   max-width: 700px;
+   margin-left: auto;
+   margin-right: auto;
+   }
+   .breadcrumb-step {
+   display: flex;
+   align-items: center;
+   position: relative;
+   z-index: 1;
+   font-size: 1.08em;
+   font-weight: 500;
+   color: #64748b;
+   background: transparent;
+   border-radius: 2em;
+   padding: 0.5em 1.7em 0.5em 2.2em;
+   cursor: pointer;
+   transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+   box-shadow: none;
+   border: none;
+   outline: none;
+   margin-right: -1.2em;
+   }
+   .breadcrumb-step.active {
+   background: linear-gradient(90deg, #028084 60%, #024547 100%);
+   color: #fff;
+   font-weight: 700;
+   box-shadow: 0 2px 8px #dbeafe;
+   z-index: 2;
+   }
+   .breadcrumb-step .step-icon {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   margin-right: 0.7em;
+   font-size: 1.2em;
+   border-radius: 50%;
+   width: 2em;
+   height: 2em;
+   background: #ccedf1;
+   color: #028084;
+   font-weight: 700;
+   transition: background 0.18s, color 0.18s;
+   }
+   .breadcrumb-step.active .step-icon {
+   background: #fff;
+   color: #028084;
+   box-shadow: 0 1px 4px #dbeafe;
+   }
+   .breadcrumb-arrow {
+   width: 2.2em;
+   height: 1.2em;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   color: #2563eb;
+   font-size: 1.5em;
+   margin-left: -1.2em;
+   margin-right: -1.2em;
+   z-index: 0;
+   opacity: 0.7;
+   pointer-events: none;
+   user-select: none;
+   }
+   @media (max-width: 600px) {
+   .breadcrumb-steps {
+   padding: 0.4em 0.5em 0.4em 2.2em;
+   min-width: 0;
+   max-width: 98vw;
+   font-size: 0.97em;
+   }
+   .breadcrumb-step {
+   padding: 0.4em 0.7em 0.4em 1.2em;
+   font-size: 0.97em;
+   }
+   .breadcrumb-arrow {
+   width: 1.2em;
+   font-size: 1.1em;
+   }
+   }
+   /* Previous button style for better integration */
+   #btn-breadcrumb-prev {
+   position: absolute;
+   left: 0.7em;
+   top: 50%;
+   transform: translateY(-50%);
+   z-index: 3;
+   background: #fff;
+   color: #2563eb;
+   border: 1.5px solid #2563eb;
+   font-weight: 600;
+   border-radius: 2em;
+   box-shadow: 0 1px 4px #e0e7ef;
+   transition: background 0.18s, color 0.18s;
+   padding: -1.6em 1.2em;
+   }
+   #btn-breadcrumb-prev:hover {
+   background: #2563eb;
+   color: #fff;
+   }
+   /* Add or update this in your 
+<style> block */
+   #departmentSelect,
+   #roleSelect {
+   min-width: 180px !important;
+   width: 100% !important;
+   max-width: 320px;
+   }
+   /* Add to your 
+<style> block */
+   #department,
+   #role {
+   min-width: 180px !important;
+   width: 100% !important;
+   max-width: 320px;
+   white-space: normal !important;
+   word-break: break-word !important;
+   }
+   #department option,
+   #role option {
+   white-space: normal !important;
+   word-break: break-word !important;
+   max-width: 300px;
+   overflow-wrap: break-word;
+   padding-right: 2em;
+   position: relative;
+   }
+   .select-option-remove {
+   position: absolute;
+   right: 0.5em;
+   top: 50%;
+   transform: translateY(-50%);
+   color: #dc2626;
+   font-size: 1.1em;
+   cursor: pointer;
+   background: transparent;
+   border: none;
+   z-index: 2;
+   }
+   /* Make breadcrumb links show hand cursor */
+   .breadcrumb li,
+   .breadcrumb li a,
+   .breadcrumb li span[aria-current="page"] {
+   cursor: pointer;
+   }
+   /* Add this to your 
+<style> block */
+   .dp-module {
+   background: #e0f2fe !important;
+   border: 2px solid #38bdf8 !important;
+   }
+   /* Add this at the end of your 
+<style> block in Settings.html */
+   #moduleTilesGrid {
+   display: grid !important;
+   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+   gap: 0.5rem 0.7rem !important;
+   width: 100%;
+   margin: 1rem 0 !important;
+   padding: 0;
+   }
+   #moduleTilesGrid .module-tile {
+   min-width: 120px;
+   max-width: 100%;
+   margin: 0 !important;
+   padding: 0.5rem 0.2rem;
+   box-sizing: border-box;
+   }
+   /* Tighter, professional grid for module headings checkboxes */
+   #selectedModulesContainer .module-headings-grid {
+   display: flex;
+   width: 100%;
+   margin: 0.2em 0 0.2em 0;
+   flex-wrap: wrap;
+   }
+   #selectedModulesContainer .module-headings-grid label {
+   display: flex;
+   font-weight: 500;
+   font-size: 0.97em;
+   cursor: pointer;
+   }
+   #selectedModulesContainer .module-headings-grid input[type="checkbox"] {
+   display: table-cell;
+   margin: 0 0.5em 0 0;
+   width: 1em;
+   height: 1em;
+   accent-color: #2563eb;
+   vertical-align: middle;
+   }
+   #selectedModulesContainer .module-headings-grid label span {
+   display: table-cell;
+   vertical-align: middle;
+   padding-left: 0.3em;
+   white-space: nowrap;
+   }
+   #selectedModulesContainer .module-headings-grid label:hover {
+   background: #f1f5f9;
+   }
+   #selectedModulesContainer .module-headings-grid input[type="checkbox"] {
+   margin: 0 0.3em 0 0;
+   width: 1em;
+   height: 1em;
+   accent-color: #2563eb;
+   }
+   /* Add this at the end of your 
+<style> block in Settings.html */
+   #selectedModulesContainer label {
+   display: flex;
+   align-items: center;
+   gap: 0.4em;
+   margin: 0 0.8em 0.3em 0 !important;
+   font-weight: 500;
+   font-size: 0.97em;
+   min-width: 0;
+   }
+   #selectedModulesContainer input[type="checkbox"] {
+   margin: 0 0.3em 0 0;
+   width: 1em;
+   height: 1em;
+   }
+   .breadcrumb {
+   padding: 0 0.5rem;
+   margin-bottom: 1.2rem;
+   }
+   .breadcrumb ol {
+   display: flex;
+   flex-wrap: wrap;
+   list-style: none;
+   margin: 0;
+   padding: 0;
+   align-items: end;
+   }
+   .breadcrumb li:not(:last-child)::after {
+   display: inline-block;
+   margin: 0 0.25rem;
+   content: "→";
+   color: #64748b;
+   font-weight: 600;
+   }
+   .breadcrumb li {
+   font-size: 1.05em;
+   color: #64748b;
+   font-weight: 500;
+   }
+   .breadcrumb li.active,
+   .breadcrumb li[aria-current="page"] {
+   color: #2563eb;
+   font-weight: 700;
+   }
+   .breadcrumb a {
+   color: inherit;
+   text-decoration: none;
+   cursor: pointer;
+   transition: color 0.15s;
+   }
+   .breadcrumb a:hover {
+   color: #2563eb;
+   text-decoration: underline;
+   }
+   /* Responsive modal for module selection */
+   #moduleSelectModal .modal-content {
+   padding: 1.2rem;
+   max-width: 400px;
+   width: 95%;
+   }
+   @media (max-width: 600px) {
+   #moduleSelectModal .modal-content {
+   padding: 0.7rem;
+   max-width: 98vw;
+   }
+   }
+   #module-provision-section .card-content {
+   padding: 0.75rem 1rem !important;
+   }
+   .module-provision-grid {
+   display: flex;
+   flex-wrap: wrap;
+   }
+   .module-provision-half {
+   flex: 1 1 250px;
+   min-width: 220px;
+   display: flex;
+   flex-direction: column;
+   }
+   .module-provision-title {
+   font-weight: 600;
+   font-size: 1em;
+   margin-bottom: -15px;
+   color: #2563eb;
+   }
+   .module-tiles {
+   display: grid;
+   grid-template-columns: repeat(3, 1fr);
+   gap: 0.4rem;
+   }
+   .module-tile {
+   background: #f1f5f9;
+   border: 1px solid #d1d5db;
+   border-radius: 6px;
+   padding: 0.5rem 0.2rem;
+   text-align: center;
+   font-size: 0.97em;
+   cursor: pointer;
+   transition: background 0.15s, border 0.15s;
+   user-select: none;
+   }
+   .module-tile.selected {
+   background: #2563eb;
+   color: #fff;
+   border-color: #2563eb;
+   }
+   .chosen-modules-dropzone {
+   min-height: 90px;
+   background: #f8fafc;
+   border: 1px dashed #d1d5db;
+   border-radius: 6px;
+   padding: 0.5rem;
+   display: flex;
+   flex-direction: column;
+   gap: 0.4rem;
+   }
+   .chosen-module {
+   background: #fff;
+   border: 1px solid #2563eb;
+   border-radius: 6px;
+   padding: 0.45rem 0.7rem;
+   margin-bottom: 0;
+   font-size: 0.97em;
+   cursor: move;
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+   transition: box-shadow 0.2s;
+   }
+   .chosen-module.dragging {
+   opacity: 0.6;
+   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+   }
+   .chosen-modules-placeholder {
+   color: #94a3b8;
+   font-size: 0.95em;
+   text-align: center;
+   padding: 0.7rem 0;
+   }
+   @media (max-width: 900px) {
+   .module-provision-grid {
+   flex-direction: column;
+   gap: 1.2rem;
+   }
+   .module-provision-half {
+   min-width: 0;
+   }
+   .module-tiles {
+   grid-template-columns: repeat(3, 1fr);
+   }
+   }
+   @media (max-width: 600px) {
+   .module-tiles {
+   grid-template-columns: repeat(2, 1fr);
+   }
+   }
+   .form-group .toggle-group {
+   margin-left: 16px;
+   margin-bottom: 10px;
+   }
+   * {
+   margin: 0;
+   padding: 0;
+   box-sizing: border-box;
+   }
+   body {
+   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+   sans-serif;
+   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+   color: #1a202c;
+   line-height: 1.6;
+   }
+   /* Header */
+   .header {
+   background: white;
+   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+   border-bottom: 1px solid #e2e8f0;
+   padding: 5px;
+   width: 100%;
+   box-sizing: border-box;
+   }
+   .container {
+   max-width: 1500px;
+   margin: 0 auto;
+   padding: 0 1rem;
+   width: 100%;
+   box-sizing: border-box;
+   }
+   .header-content {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   }
+   .logo-section {
+   display: flex;
+   align-items: center;
+   gap: 1rem;
+   }
+   .logo {
+   width: 48px;
+   height: 48px;
+   border-radius: 12px;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   color: white;
+   font-size: 1.5rem;
+   font-weight: bold;
+   }
+   .logo-text h1 {
+   font-size: 1.5rem;
+   font-weight: 700;
+   color: #1a202c;
+   }
+   .logo-text p {
+   font-size: 0.875rem;
+   color: #64748b;
+   }
+   .header-badges {
+   display: flex;
+   gap: 1.5rem;
+   }
+   .badge {
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+   font-size: 0.875rem;
+   font-weight: 500;
+   }
+   .badge.enterprise {
+   color: #64748b;
+   }
+   .badge.admin {
+   color: #2563eb;
+   }
+   .grid {
+   display: grid;
+   grid-template-columns: 1fr !important;
+   gap: 2rem;
+   margin-bottom: 2rem;
+   justify-content: start;
+   margin-left: 0 !important;
+   padding-left: 0 !important;
+   }
+   .card:first-child {
+   width: 100% !important;
+   max-width: 100% !important;
+   margin-bottom: 2rem;
+   }
+   .card:first-child .card-content .form-grid {
+   grid-template-columns: 1fr 1fr 1fr !important;
+   }
+   .card {
+   background: rgba(255, 255, 255, 0.8);
+   backdrop-filter: blur(10px);
+   border-radius: 12px;
+   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+   border: 1px solid rgba(255, 255, 255, 0.2);
+   padding: 0.5rem 0.5rem !important;
+   margin-bottom: 1rem !important;
+   }
+   .card-title {
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+   font-size: 1.25rem;
+   font-weight: 600;
+   color: #1a202c;
+   padding: 5px !important;
+   }
+   .card-content {
+   padding: 1rem 1rem 0.5rem 1rem !important;
+   }
+   /* Form Styles */
+   .form-grid {
+   display: grid;
+   grid-template-columns: 1fr 1fr;
+   gap: 0.5rem;
+   margin-bottom: 1rem;
+   }
+   .form-group {
+   display: flex;
+   flex-direction: column;
+   margin-bottom: 0.5rem !important;
+   }
+   .form-group.full-width {
+   grid-column: 1 / -1;
+   }
+   label {
+   font-weight: 500;
+   margin-bottom: 0.5rem;
+   color: #374151;
+   }
+   input,
+   select {
+   padding: 0.75rem;
+   border: 1px solid #d1d5db;
+   border-radius: 6px;
+   font-size: 0.875rem;
+   transition: all 0.2s;
+   }
+   input:focus,
+   select:focus {
+   outline: none;
+   border-color: #2563eb;
+   }
+   .toggle-group {
+   display: flex;
+   gap: 1rem;
+   }
+   .toggle-option {
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+   }
+   .checkbox-group {
+   display: grid;
+   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+   gap: 0.5rem;
+   margin-top: 0.5rem;
+   }
+   .checkbox-item {
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+   }
+   .btn {
+   padding: 0.75rem 1.5rem;
+   border: none;
+   border-radius: 6px;
+   font-weight: 500;
+   cursor: pointer;
+   transition: all 0.2s;
+   display: inline-flex;
+   align-items: center;
+   gap: 0.5rem;
+   }
+   .btn-primary {
+   background: #2563eb;
+   color: white;
+   }
+   .btn-primary:hover {
+   background: #1d4ed8;
+   }
+   .btn-secondary {
+   background: #f8fafc;
+   color: #475569;
+   border: 1px solid #e2e8f0;
+   }
+   .btn-secondary:hover {
+   background: #f1f5f9;
+   }
+   .btn-danger {
+   background: #dc2626;
+   color: white;
+   }
+   .btn-danger:hover {
+   background: #b91c1c;
+   }
+   .btn-sm {
+   padding: 0.5rem 1rem;
+   font-size: 0.875rem;
+   }
+   /* Drag and Drop */
+   .module-section {
+   margin-bottom: 1.5rem;
+   }
+   .module-header {
+   display: flex;
+   justify-content: between;
+   align-items: center;
+   margin-bottom: 0.75rem;
+   }
+   .module-list {
+   min-height: 100px;
+   padding: 0.75rem;
+   border: 2px dashed #d1d5db;
+   border-radius: 6px;
+   background: #f8fafc;
+   transition: all 0.3s;
+   }
+   .module-list.drag-over {
+   border-color: #2563eb;
+   background: #eff6ff;
+   }
+   .module-item {
+   display: flex;
+   align-items: center;
+   gap: 0.75rem;
+   padding: 0.75rem;
+   background: white;
+   border: 2px solid #e5e7eb;
+   border-radius: 6px;
+   margin-bottom: 0.5rem;
+   cursor: move;
+   transition: all 0.2s;
+   }
+   .module-item:hover {
+   border-color: #9ca3af;
+   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+   }
+   .module-item.dragging {
+   opacity: 0.5;
+   transform: scale(1.05);
+   }
+   .module-icon {
+   width: 32px;
+   height: 32px;
+   border-radius: 6px;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   color: white;
+   font-weight: bold;
+   }
+   .module-icon.inventory {
+   background: #3b82f6;
+   }
+   .module-icon.attendance {
+   background: #10b981;
+   }
+   .module-icon.leave {
+   background: #8b5cf6;
+   }
+   .module-icon.finance {
+   background: #059669;
+   }
+   .module-icon.design {
+   background: #f59e0b;
+   }
+   .badge-count {
+   background: #028084;
+   color: white;
+   padding: 0.10rem 0.5rem;
+   border-radius: 12px;
+   font-size: 0.75rem;
+   font-weight: 500;
+   }
+   .badge-count.primary {
+   background: #2563eb;
+   }
+   /* Table */
+   .table-controls {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 0.5rem;
+   margin-bottom: -30px !important;
+   }
+   .table th,
+   .table td {
+   padding: 0.5rem !important;
+   }
+   input,
+   select {
+   padding-top: 0.35rem !important;
+   padding-bottom: 0.35rem !important;
+   min-height: 28px !important;
+   font-size: 0.95rem !important;
+   }
+   .search-input {
+   position: relative;
+   flex: 1;
+   max-width: 300px;
+   }
+   .search-input input {
+   padding-left: 2.5rem;
+   width: 100%;
+   }
+   .search-icon {
+   position: absolute;
+   left: 0.75rem;
+   top: 50%;
+   transform: translateY(-50%);
+   color: #9ca3af;
+   }
+   .table-wrapper {
+   overflow-x: auto;
+   }
+   .table {
+   width: 100%;
+   border-collapse: collapse;
+   }
+   .table th,
+   .table td {
+   padding: 0.75rem;
+   text-align: left;
+   border-bottom: 1px solid #e5e7eb;
+   }
+   .table th {
+   background: #f8fafc;
+   font-weight: 600;
+   color: #374151;
+   }
+   .table tr:hover {
+   background: #f8fafc;
+   }
+   .table-badge {
+   padding: 0.25rem 0.5rem;
+   border-radius: 4px;
+   font-size: 0.75rem;
+   font-weight: 500;
+   }
+   .table-badge.on-role {
+   background: #dcfce7;
+   color: #166534;
+   }
+   .table-badge.off-role {
+   background: #fed7aa;
+   color: #9a3412;
+   }
+   .table-badge.department {
+   background: #f3f4f6;
+   color: #374151;
+   border: 1px solid #d1d5db;
+   }
+   .table-badge.module {
+   background: #e0e7ff;
+   color: #3730a3;
+   }
+   .action-buttons {
+   display: flex;
+   gap: 0.5rem;
+   }
+   .action-btn {
+   padding: 0.25rem;
+   border: none;
+   border-radius: 4px;
+   cursor: pointer;
+   transition: all 0.2s;
+   }
+   .action-btn.edit {
+   background: #dbeafe;
+   color: #1d4ed8;
+   }
+   .action-btn.delete {
+   background: #fecaca;
+   color: #dc2626;
+   }
+   .action-btn:hover {
+   transform: scale(1.1);
+   }
+   .empty-state {
+   text-align: center;
+   padding: 3rem;
+   color: #6b7280;
+   }
+   /* Modal */
+   .modal {
+   display: none;
+   position: fixed;
+   top: 0;
+   left: 0;
+   width: 100%;
+   height: 100%;
+   background: rgba(0, 0, 0, 0.5);
+   z-index: 1000;
+   }
+   .modal.show {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   }
+   .modal-content {
+   background: white;
+   border-radius: 12px;
+   padding: 2rem;
+   max-width: 500px;
+   width: 90%;
+   max-height: 90vh;
+   overflow-y: auto;
+   }
+   .modal-header {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   margin-bottom: 1.5rem;
+   }
+   .modal-title {
+   font-size: 1.25rem;
+   font-weight: 600;
+   }
+   .close-btn {
+   background: none;
+   border: none;
+   font-size: 1.5rem;
+   cursor: pointer;
+   color: #6b7280;
+   }
+   .modal-actions {
+   display: flex;
+   justify-content: flex-end;
+   gap: 1rem;
+   margin-top: 1.5rem;
+   }
+   /* Responsive */
+   @media (max-width: 1024px) {
+   .grid {
+   grid-template-columns: 1fr;
+   }
+   }
+   @media (max-width: 768px) {
+   .header-content {
+   flex-direction: column;
+   gap: 1rem;
+   }
+   .form-grid {
+   grid-template-columns: 1fr;
+   }
+   .table-controls {
+   flex-direction: column;
+   align-items: stretch;
+   }
+   .search-input {
+   max-width: none;
+   }
+   }
+</style>
+<!-- Header -->
+<!-- <header class="header">
+   <div class="container">
+     <div class="header-content">
+       <div class="logo-section">
+         <img
+           src="{% static 'assets/gif/UserAuth.gif' %}"
+           alt="Logo"
+           class="logo"
+           style="
+             width: 60px;
+             height: auto;
+             object-fit: cover;
+             border-radius: 12px;
+           "
+         />
+         <div class="logo-text">
+           <h3>User Administration Module</h3>
+           <p>Only for admins</p>
+         </div>
+       </div>
+     </div>
+   </div>
+   </header> -->
+<!-- Breadgrumbs Menu-->
+<main class="main" style="overflow: scroll !important">
+   <nav aria-label="Breadcrumb" style="position: relative; margin-bottom: -1.5em;">
+      <div class="breadcrumb-steps">
+         <div id="bc-user" class="breadcrumb-step" onclick="showStep(1)">
+            <span class="step-icon">1</span>
+            User Creation
+         </div>
+         <div id="bc-modules" class="breadcrumb-step" onclick="showStep(2)">
+            <span class="step-icon">2</span>
+            Select Modules
+         </div>
+         <div id="bc-table" class="breadcrumb-step" onclick="showStep(3)">
+            <span class="step-icon">3</span>
+            User Table
+         </div>
+      </div>
+   </nav>
+   <div class="container">
+      <!-- User Creation Section -->
+      <div id="step-user-form">
+         <div class="card" style ="overflow: scroll !important;">
+            <form id="userForm" autocomplete="off">
+               <h2 class="card-title">
+                  User Creation & Management
+               </h2>
+               <div class="card-content">
+                  <div class="form-grid">
+                     <!-- User ID - Dynamic Field -->
+                     <!-- <div class="form-group">
+                        <label for="userID">User ID</label>
+                        <input type="text" id="userId" name="custom_user_id" readonly value="{{ next_user_id }}" placeholder="Auto-generated User ID" />
+                        </div> -->
+                     <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required placeholder="Enter Username" autocomplete="off" />
+                     </div>
+                     <!-- First Name Field -->
+                     <div class="form-group">
+                        <label for="fullName">First Name</label>
+                        <input type="text" id="firstName" name="first_name" required placeholder="Enter First Name" />
+                     </div>
+                     <!-- Second Name Field -->
+                     <div class="form-group">
+                        <label for="fullName">Second Name</label>
+                        <input type="text" id="lastName" name="last_name" required placeholder="Enter Last Name" />
+                     </div>
+                     <!-- Email Field -->
+                     <div class="form-group">
+                        <label for="email">Email ID</label>
+                        <input type="email" id="email" name="email" required placeholder="Enter Email ID" />
+                     </div>
+                     <!-- Password Field -->
+                     <!-- Password Field -->
+                     <div class="form-group">
+                        <div style="display: flex; align-items: center; gap: 0.7em;">
+                           <label for="password" style="margin-bottom:0;">
+                           Password
+                           <span id="passwordStrengthLive" style="margin-left:0.7em;font-size:0.97em;font-weight:600;color:#64748b;vertical-align:middle;"></span>
+                           <span id="passwordStrengthBarInline" style="display:inline-block;vertical-align:middle;height:7px;width:70px;border-radius:4px;margin-left:0.7em;background:#e5e7eb;overflow:hidden;">
+                           <span id="passwordStrengthFillInline" style="display:block;height:100%;width:0%;background:#e5e7eb;transition:width 0.2s,background 0.2s;"></span>
+                           </span>
+                           </label>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5em; position:relative;">
+                           <input type="password" id="password" name="password" required placeholder="Enter Password" style="flex:1;" autocomplete="off" aria-describedby="passwordHelp" />
+                           <span class="toggle-password" onclick="togglePassword('password', this)" style="cursor:pointer;" title="Show/Hide Password" tabindex="0" onkeydown="if(event.key==='Enter'){togglePassword('password', this);}">
+                              <svg id="eye-password" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24">
+                                 <path stroke="#64748b" stroke-width="2" d="M1.5 12S5.5 5.5 12 5.5 22.5 12 22.5 12 18.5 18.5 12 18.5 1.5 12 1.5 12Z"/>
+                                 <circle cx="12" cy="12" r="3.5" stroke="#64748b" stroke-width="2"/>
+                              </svg>
+                           </span>
+                        </div>
+                        <div id="passwordHelp" style="font-size:12px;color:#64748b;margin-top:0.2em;">
+                           Min 8 chars. Use (A–Z) (a–z) (0–9) (!@#$%^&*)
+                        </div>
+                        <div id="passwordStrengthMsg" style="font-size:0.95em;color:#dc2626;margin-top:0.2em;"></div>
+                     </div>
+                     <!-- Confirm Password Field -->
+                     <div class="form-group">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <div style="display: flex; align-items: center; gap: 0.5em;">
+                           <input type="password" id="confirmPassword" name="confirmPassword" required placeholder="Confirm Password" style="flex:1;" />
+                           <span id="passwordMatchIcon" style="display:none;color:green;font-size:1.3em;">&#10003;</span>
+                           <span class="toggle-password" onclick="togglePassword('confirmPassword', this)" style="cursor:pointer;">
+                              <svg id="eye-confirmPassword" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24">
+                                 <path stroke="#64748b" stroke-width="2" d="M1.5 12S5.5 5.5 12 5.5 22.5 12 22.5 12 18.5 18.5 12 18.5 1.5 12 1.5 12Z"/>
+                                 <circle cx="12" cy="12" r="3.5" stroke="#64748b" stroke-width="2"/>
+                              </svg>
+                           </span>
+                        </div>
+                     </div>
+                     <!-- Department Dropdown + Add -->
+                     <div class="form-group">
+                        <label for="department">Department</label>
+                        <div style="display:flex;gap:1.1em;">
+                           <select id="departmentSelect" required placeholder="Select Department">
+                              <option value="" disabled selected>Select Department</option>
+                              <!-- Populated dynamically -->
+                           </select>
+                        </div>
+                     </div>
+                     <!-- Role Dropdown + Add -->
+                     <div class="form-group">
+                        <label for="role">Role</label>
+                        <div style="display:flex;gap:1.1em;">
+                           <select id="roleSelect" required placeholder="Select Role">
+                              <option value="" disabled selected>Select Role</option>
+                              <!-- Populated dynamically -->
+                           </select>
+                        </div>
+                     </div>
+                     <!-- User Category Dropdown + Add -->
+                     <div class="form-group">
+                        <label for="userCategory">User Category</label>
+                        <div style="display:flex;gap:1.1em;">
+                           <select id="userCategorySelect" required placeholder="Select User Category" style="width: 100%;">
+                              <option value="" disabled selected>Select User Category</option>
+                              <!-- Populated dynamically -->
+                           </select>
+                        </div>
+                     </div>
+                     <!-- Manage Name Field -->
+                     <div class="form-group">
+                        <label for="manager">Manager Name</label>
+                        <input type="text" id="manager" name="manager" placeholder="Enter Manager Name" />
+                     </div>
+                     <div class="form-group">
+                        <label>Employment Status</label>
+                        <div class="toggle-group">
+                           <div class="toggle-option">
+                              <input
+                                 type="radio"
+                                 id="onRole"
+                                 name="employmentStatus"
+                                 value="On-role"
+                                 checked
+                                 />
+                              <label for="onRole">On-role</label>
+                           </div>
+                           <div class="toggle-option">
+                              <input
+                                 type="radio"
+                                 id="offRole"
+                                 name="employmentStatus"
+                                 value="Off-role"
+                                 />
+                              <label for="offRole">Off-role</label>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+                  <div
+                     style="
+                     display: flex;
+                     justify-content: flex-end;
+                     align-items: center;
+                     gap: 1rem;
+                     margin-top: 1.2rem;
+                     "
+                     >
+                     <button type="submit" class="btn btn-primary">
+                     <span></span>
+                     Save & Next
+                     </button>
+                  </div>
+            </form>
+            </div>
+         </div>
+      </div>
+      <!-- Module Provision Section (Drag and Drop) -->
+      <div id="step-module-select" style="display: none">
+         <div
+            class="card"
+            id="module-provision-section"
+            style="margin-bottom: 1rem"
+            >
+            <div
+               class="card-content"
+               id="module-provision-content"
+               style="padding: 0.75rem 1rem"
+               >
+               <div class="module-provision-grid">
+                  <div>
+                     <div class="module-provision-title">Select Modules</div>
+                     <div
+                        id="moduleTilesGrid"
+                        style="
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                        gap: 0.5rem 0.7rem;
+                        width: 100%;
+                        margin: 1rem 0;
+                        padding: 0;
+                        "
+                        >
+                        <!-- Tiles will be injected here -->
+                     </div>
+                  </div>
+                  <div style="margin-bottom: 1.2rem">
+                     <div
+                        id="moduleBtnGrid"
+                        style="
+                        display: grid;
+                        grid-template-columns: repeat(5, 1fr);
+                        gap: 0.7rem 1.2rem;
+                        margin-left: 35px;
+                        "
+                        >
+                        <!-- Module buttons will be injected here -->
+                     </div>
+                  </div>
+                  <!-- Replace the "Selected Modules – Disabled..." line and ensure the Save & Next button is always at the right: -->
+                  <div id="selectedModulesSection" style="margin-top: 1.5rem;">
+                     <div id="selectedModulesContainer">
+                        <!-- Dropped modules and their heading checkboxes will appear here -->
+                     </div>
+                     <div style="display: flex; justify-content: flex-end; margin-top: 1.2rem;">
+                        <button type="button" id="btn-module-save-next" class="btn btn-primary" style="min-width: 140px;">
+                        Save & Next
+                        </button>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+      </div>
+   </div>
+   <!-- Users Table Section -->
+   <div id="step-user-table" style="display: none">
+      <div class="card">
+         <div class="table-controls">
+            <div class="card-title">
+               <span>User Management</span>
+               <span class="badge-count" id="userCount">0</span>
+            </div>
+            <!-- Search Option -->
+            <!--             <div style="display: flex; gap: 1rem">
+               <div class="search-input">
+                 <span class="search-icon">🔍</span>
+                 <input
+                   type="text"
+                   id="searchUsers"
+                   placeholder="Search users..."
+                 />
+               </div>
+               
+               <select id="filterDepartment">
+                 <option value="all">All Departments</option>
+                 
+               </select>
+               </div> -->
+         </div>
+         <div class="card-content" style="padding: 0">
+            <div class="table-wrapper">
+               <table class="table" id="usersTable">
+                  <thead>
+                     <tr id="tableHeader">
+                        <th data-column="userId">S.No</th>
+                        <th data-column="username">Username</th>
+                        <th data-column="fullName">Full Name</th>
+                        <th data-column="email">Email</th>
+                        <th data-column="userCategory">User Category</th>
+                        <th data-column="department">Department</th>
+                        <th data-column="role">Role</th>
+                        <th data-column="manager">Manager</th>
+                        <th data-column="status">Status</th>
+                        <th data-column="modules">Modules</th>
+                        <th data-column="created">Created</th>
+                        <th>Actions</th>
+                     </tr>
+                  </thead>
+                  <tbody id="usersTableBody">
+                     <!-- Users will be populated here -->
+                  </tbody>
+               </table>
+               <!-- Pagination -->
+               <div id="paginationControls" style="display:flex;justify-content:center;gap:0.5em;margin:1em 0;"></div>
+            </div>
+         </div>
+      </div>
+   </div>
+   </div>
+</main>
+<!-- Edit User Modal -->
+<div class="modal" id="editModal">
+   <div class="modal-content">
+      <div class="modal-header">
+         <h3 class="modal-title">Edit User</h3>
+         <button class="close-btn" onclick="closeEditModal()">&times;</button>
+      </div>
+      <form id="editForm">
+         <div class="form-group">
+            <label for="editFullName">Full Name</label>
+            <input type="text" id="editFullName" name="fullName" required />
+         </div>
+         <div class="form-group">
+            <label for="editEmail">Email</label>
+            <input type="email" id="editEmail" name="email" required />
+         </div>
+         <div class="form-group">
+            <label for="editDepartment">Department</label>
+            <select id="editDepartment" name="department" required>
+               <!-- Populated dynamically -->
+            </select>
+         </div>
+         <div class="form-group">
+            <label for="editRole">Role</label>
+            <select id="editRole" name="role" required>
+               <!-- Populated dynamically -->
+            </select>
+         </div>
+         <div class="modal-actions">
+            <button
+               type="button"
+               class="btn btn-secondary"
+               onclick="closeEditModal()"
+               >
+            Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+         </div>
+      </form>
+   </div>
+</div>
+
+<!-- Script for User Management Table -->
+<script nonce="{{ csp_nonce }}">
+   // Utility to get CSRF token from cookie
+   function getCookie(name) {
+     let cookieValue = null;
+     if (document.cookie && document.cookie !== "") {
+       const cookies = document.cookie.split(";");
+       for (let i = 0; i < cookies.length; i++) {
+         const cookie = cookies[i].trim();
+         // Does this cookie string begin with the name we want?
+         if (cookie.substring(0, name.length + 1) === name + "=") {
+           cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+           break;
+         }
+       }
+     }
+     return cookieValue;
+   }
+
+   // ACtion - Edit Icon
+// In the editUser function, after populating the form fields, add this:
+
+// Action - Edit Icon
+async function editUser(userId) {
+  console.log("editUser called with userId:", userId);
+
+  try {
+    const res = await fetch(`/adminportal/api/users/${userId}/`, {
+      method: "GET",
+      headers: { "Accept": "application/json" }
+    });
+    if (!res.ok) throw new Error("Failed to fetch user data");
+    const user = await res.json();
+
+    // Fill the user creation form fields
+    document.getElementById("username").value = user.username || "";
+    document.getElementById("firstName").value = user.first_name || "";
+    document.getElementById("lastName").value = user.last_name || "";
+    document.getElementById("email").value = user.email || "";
+    document.getElementById("manager").value = user.manager || "";
+    document.getElementById("password").value = "";
+    document.getElementById("confirmPassword").value = "";
+    document.getElementById("passwordStrengthMsg").textContent = "";
+    document.getElementById("passwordMatchIcon").style.display = "none";
+
+    // Set department
+    const deptSelect = document.getElementById("departmentSelect");
+    if (deptSelect) deptSelect.value = user.department_id || "";
+
+    // Set role
+    const roleSelect = document.getElementById("roleSelect");
+    if (roleSelect) roleSelect.value = user.role_id || "";
+
+    // Set user category (group) - THIS IS THE KEY FIX
+    const catSelect = document.getElementById("userCategorySelect");
+    if (catSelect) catSelect.value = user.group_id || "";
+
+    // Set employment status
+    if (user.employment_status === "Off-role") {
+      document.getElementById("offRole").checked = true;
+    } else {
+      document.getElementById("onRole").checked = true;
+    }
+
+    // Store editing user id for update logic if needed
+    window.editingUserId = userId;
+
+    // Go to step 1 (user creation form)
+    showStep(1);
+
+    // --- Auto-populate modules for this user ---
+    // Fetch allowed modules for this user
+    const modRes = await fetch(`/adminportal/api/user-allowed-modules/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCookie("csrftoken")
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({ user_id: userId })
+    });
+    const modData = await modRes.json();
+    if (modData.modules && Array.isArray(modData.modules)) {
+      window.droppedModules = modData.modules.map(m => ({
+        name: m.name,
+        headings: m.headings
+      }));
+      renderModuleBtnGrid();
+      renderSelectedModulesContainer();
+    }
+  } catch (err) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Could not load user data for editing.'
+    });
+  }
+}
+
+   document.addEventListener("DOMContentLoaded", function () {
+     // Populate Departments and Roles
+     function populateDepartments() {
+       fetch("/adminportal/api/departments/")
+         .then(response => response.json())
+         .then(data => {
+           const departmentSelect = document.getElementById("departmentSelect");
+           if (!departmentSelect) return;
+           departmentSelect.innerHTML = '<option value="" disabled selected>Select Department</option>';
+           data.forEach(dept => {
+             const option = document.createElement("option");
+             option.value = dept.id;
+             option.text = dept.name;
+             departmentSelect.appendChild(option);
+           });
+         })
+         .catch(error => console.error("Error fetching departments:", error));
+     }
+
+     function populateRoles() {
+       fetch("/adminportal/api/roles/")
+         .then(response => response.json())
+         .then(data => {
+           const roleSelect = document.getElementById("roleSelect");
+           if (!roleSelect) return;
+           roleSelect.innerHTML = '<option value="" disabled selected>Select Role</option>';
+           data.forEach(role => {
+             const option = document.createElement("option");
+             option.value = role.id;
+             option.text = role.name;
+             roleSelect.appendChild(option);
+           });
+         })
+         .catch(error => console.error("Error fetching roles:", error));
+     }
+
+     function populateUserCategories() {
+       fetch("/adminportal/api/group-modules/")
+         .then(response => response.json())
+         .then(data => {
+           const userCategorySelect = document.getElementById("userCategorySelect");
+           if (!userCategorySelect) return;
+           userCategorySelect.innerHTML = '<option value="" disabled selected>Select User Category</option>';
+           data.forEach(group => {
+             const option = document.createElement("option");
+             option.value = group.id;
+             option.text = group.name;
+             userCategorySelect.appendChild(option);
+           });
+         })
+         .catch(error => console.error("Error fetching user categories:", error));
+     }
+
+     populateDepartments();
+     populateRoles();
+
+     // User form submission
+     const form = document.getElementById("userForm");
+     if (form) {
+form.addEventListener("submit", async function (e) {
+  e.preventDefault();
+
+  const department = document.getElementById("departmentSelect").value;
+  const role = document.getElementById("roleSelect").value;
+  const userCategory = document.getElementById("userCategorySelect").value;
+
+  if (!department || !role) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Missing Fields',
+      text: 'Please select both Department and Role.'
+    });
+    return;
+  }
+
+  const data = {
+    username: document.getElementById("username").value,
+    first_name: document.getElementById("firstName").value,
+    last_name: document.getElementById("lastName").value,
+    email: document.getElementById("email").value,
+    password: document.getElementById("password").value,
+    confirmPassword: document.getElementById("confirmPassword").value, 
+    department: department, // ID
+    role: role, // ID
+    manager: document.getElementById("manager").value,
+    employment_status: document.querySelector('input[name="employmentStatus"]:checked').value,
+    group: userCategory
+  };
+
+  try {
+    let response, result;
+    if (window.editingUserId) {
+      // EDIT: Use PUT
+      response = await fetch(`/adminportal/api/users/${window.editingUserId}/`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCookie("csrftoken")
+        },
+        credentials: "same-origin",
+        body: JSON.stringify(data)
+      });
+      result = await response.json();
+      if (response.ok && result.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'User Updated',
+          text: `User updated successfully!`
+        });
+        window.editingUserId = null;
+        showStep(2);
+        fetch("/adminportal/api/users/list/")
+          .then(res => res.json())
+          .then(users => renderUsersTable(users));
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.error || "Failed to update user"
+        });
+      }
+    } else {
+      // CREATE: Use POST
+      response = await fetch("/adminportal/api/users/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCookie("csrftoken")
+        },
+        credentials: "same-origin",
+        body: JSON.stringify(data)
+      });
+      result = await response.json();
+      if (response.ok && result.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'User Created',
+          text: `User created successfully! User ID: ${result.user_name}`
+        });
+        window.latestCreatedUser = result.user;
+        showStep(2);
+        fetch("/adminportal/api/users/list/")
+          .then(res => res.json())
+          .then(users => renderUsersTable(users));
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: result.error || "Failed to create user"
+        });
+      }
+    }
+  } catch (error) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Unexpected Error',
+      text: 'An unexpected error occurred. Please try again.'
+    });
+  }
+});
+     }
+
+     // Delegate edit and delete button clicks for user table (CSP-safe)
+     document.getElementById("usersTableBody").addEventListener("click", function (e) {
+       const delBtn = e.target.closest(".action-btn.delete");
+       if (delBtn) {
+         const tr = delBtn.closest("tr");
+         let userId = delBtn.getAttribute("data-user-id");
+         if (!userId && tr) {
+           const editBtn = tr.querySelector(".action-btn.edit");
+           const match = editBtn && editBtn.getAttribute("onclick") && editBtn.getAttribute("onclick").match(/\((\d+)\)/);
+           if (match) userId = match[1];
+         }
+         if (userId) {
+           deleteUser(userId);
+         }
+         return;
+       }
+       const editBtn = e.target.closest(".action-btn.edit");
+       if (editBtn) {
+         const userId = editBtn.getAttribute("data-user-id");
+         if (userId) {
+           editUser(userId);
+         }
+         return;
+       }
+     });
+   });
+
+   // Render users in the table
+   function renderUsersTable(users) {
+     const tbody = document.getElementById("usersTableBody");
+     if (!tbody) return;
+     tbody.innerHTML = "";
+     let serial = 1;
+     users.forEach((user) => {
+       // Skip users with no name and no email
+       if (
+         (!user.first_name && !user.last_name) &&
+         !user.email
+       ) {
+         return;
+       }
+       // --- FIX: Normalize modules ---
+       let modules = [];
+       if (Array.isArray(user.modules)) {
+         if (typeof user.modules[0] === "string") {
+           modules = user.modules.map(m => ({ name: m }));
+         } else {
+           modules = user.modules;
+         }
+       } else if (typeof user.modules === "string") {
+         modules = user.modules.split(",").map(m => ({ name: m.trim() }));
+       }
+
+       let modulesHtml = "";
+       if (modules.length > 0) {
+         if (modules.length === 1) {
+           modulesHtml = `<span>${modules[0].name}</span>`;
+         } else {
+           const uid = `modexp-${user.id}`;
+           modulesHtml = `
+             <span>${modules[0].name}</span>
+             <button type="button" class="mod-toggle-btn"
+               onclick="toggleModuleList('${uid}')"
+               onmouseenter="showModuleList('${uid}')"
+               onmouseleave="hideModuleList('${uid}')"
+               style="background:none;border:none;cursor:pointer;padding:0 0.3em;" title="Show all modules">
+               <span style="font-size:1.1em;">&#x25BC;</span>
+             </button>
+             <div id="${uid}"
+               onmouseenter="showModuleList('${uid}')"
+               onmouseleave="hideModuleList('${uid}')">
+               ${modules.map(m => `<div>${m.name}</div>`).join("")}
+             </div>
+           `;
+         }
+       }
+       const actionsHtml = `
+         <button class="action-btn edit" title="Edit" data-user-id="${user.id}">        <svg width="18" height="18" fill="none" viewBox="0 0 20 20"><path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5zM17.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="#1d4ed8"/></svg>
+         </button>
+         <button class="action-btn delete" title="Delete" data-user-id="${user.id}">
+           <svg width="18" height="18" fill="none" viewBox="0 0 20 20"><path d="M6 7v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7M9 10v3m2-3v3M4 7h12M9 3h2a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1z" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+         </button>
+       `;
+
+       const tr = document.createElement("tr");
+       tr.innerHTML = `
+         <td>${serial++}</td>
+         <td>${user.username || ""}</td>
+         <td>${user.first_name || ""} ${user.last_name || ""}</td>
+         <td>${user.email || ""}</td>
+         <td>${user.user_category || user.group_name || ""}</td>
+         <td>${user.department || ""}</td>
+         <td>${user.role || ""}</td>
+         <td>${user.manager || ""}</td>
+         <td>${user.employment_status || ""}</td>
+         <td>${modulesHtml}</td>
+         <td>${user.created || ""}</td>
+         <td>${actionsHtml}</td>
+       `;
+       tbody.appendChild(tr);
+     });
+   }
+
+   // Add this helper function (anywhere in your script tags, outside renderUsersTable)
+   function toggleModuleList(id) {
+     const el = document.getElementById(id);
+     if (el) el.classList.toggle("show");
+   }
+   function showModuleList(id) {
+     const el = document.getElementById(id);
+     if (el) el.classList.add("show");
+   }
+   function hideModuleList(id) {
+     const el = document.getElementById(id);
+     if (el) el.classList.remove("show");
+   }
+
+   function fillUserForm(user) {
+     document.getElementById("username").value = user.username || "";
+     document.getElementById("firstName").value = user.first_name || "";
+     document.getElementById("lastName").value = user.last_name || "";
+     document.getElementById("email").value = user.email || "";
+     document.getElementById("manager").value = user.manager || "";
+     document.getElementById("password").value = ""; // For security, do not pre-fill password
+     document.getElementById("confirmPassword").value = "";
+     document.getElementById("passwordStrengthMsg").textContent = "";
+     document.getElementById("passwordMatchIcon").style.display = "none";
+
+     // Set department
+     const deptSelect = document.getElementById("departmentSelect");
+     if (deptSelect) {
+       for (const opt of deptSelect.options) {
+         if (opt.text.trim() === (user.department || "")) {
+           deptSelect.value = opt.value;
+           break;
+         }
+       }
+     }
+     // Set role
+     const roleSelect = document.getElementById("roleSelect");
+     if (roleSelect) {
+       for (const opt of roleSelect.options) {
+         if (opt.text.trim() === (user.role || "")) {
+           roleSelect.value = opt.value;
+           break;
+         }
+       }
+     }
+     // Set user category
+     const catSelect = document.getElementById("userCategorySelect");
+     if (catSelect) {
+       for (const opt of catSelect.options) {
+         if (opt.text.trim() === (user.user_category || user.group_name || "")) {
+           catSelect.value = opt.value;
+           break;
+         }
+       }
+     }
+     // Set employment status
+     if (user.employment_status === "Off-role") {
+       document.getElementById("offRole").checked = true;
+     } else {
+       document.getElementById("onRole").checked = true;
+     }
+   }
+
+   // Action - Edit Icon
+
+   // Action - Delete Icon
+   function deleteUser(id) {
+     Swal.fire({
+       title: 'Are you sure?',
+       text: "This will permanently delete the user.",
+       icon: 'warning',
+       showCancelButton: true,
+       confirmButtonColor: '#dc2626',
+       cancelButtonColor: '#6b7280',
+       confirmButtonText: 'Yes, delete it!'
+     }).then(async (result) => {
+       if (result.isConfirmed) {
+         try {
+           const response = await fetch(`/adminportal/api/users/${id}/`, {
+             method: "DELETE",
+             headers: {
+               "X-CSRFToken": getCookie("csrftoken")
+             },
+             credentials: "same-origin"
+           });
+           if (response.ok) {
+             Swal.fire('Deleted!', 'User has been deleted.', 'success');
+             fetchAndRenderUsers(1); // Refresh table
+           } else {
+             Swal.fire('Error', 'Failed to delete user.', 'error');
+           }
+         } catch (error) {
+           Swal.fire('Error', 'Unexpected error occurred.', 'error');
+         }
+       }
+     });
+   }
+
+   function renderPaginationControls(current, total) {
+     const container = document.getElementById("paginationControls");
+     if (!container) return;
+     container.innerHTML = "";
+     if (total <= 1) return;
+     // Previous button
+     const prev = document.createElement("button");
+     prev.textContent = "Prev";
+     prev.disabled = current <= 1;
+     prev.onclick = () => fetchAndRenderUsers(current - 1);
+     container.appendChild(prev);
+
+     // Page numbers (show max 5 pages for compactness)
+     let start = Math.max(1, current - 2);
+     let end = Math.min(total, current + 2);
+     for (let i = start; i <= end; i++) {
+       const btn = document.createElement("button");
+       btn.textContent = i;
+       btn.disabled = i === current;
+       btn.onclick = () => fetchAndRenderUsers(i);
+       container.appendChild(btn);
+     }
+
+     // Next button
+     const next = document.createElement("button");
+     next.textContent = "Next";
+     next.disabled = current >= total;
+     next.onclick = () => fetchAndRenderUsers(current + 1);
+     container.appendChild(next);
+   }
+
+   // --- PAGINATION LOGIC START ---
+   function fetchAndRenderUsers(page = 1) {
+     fetch(`/adminportal/api/users/list/?page=${page}`)
+       .then(res => res.json())
+       .then(data => {
+         renderUsersTable(data.results);
+         renderPaginationControls(data.current_page, data.num_pages);
+         const userCount = document.getElementById("userCount");
+         if (userCount) userCount.textContent = data.count-1;
+       });
+   }
+
+   // user table is always populated on page load, even after a browser refresh.
+   document.addEventListener("DOMContentLoaded", function () {
+     fetchAndRenderUsers(1);
+   });
+
+   // --- Save & Next for Modules: Use correct userId for edit or create ---
+document.getElementById("btn-module-save-next").onclick = async function () {
+  // Use editingUserId if present, else latestCreatedUser
+  const userId = window.editingUserId || (window.latestCreatedUser ? window.latestCreatedUser.id : null);
+  const groupId = document.getElementById("userCategorySelect").value;
+    console.log("btn-module-save-next: userId=", userId, "groupId=", groupId, "editingUserId=", window.editingUserId, "latestCreatedUser=", window.latestCreatedUser);
+
+  if (!userId || !groupId) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Missing Info',
+      text: 'Please create a user and select a user category before assigning modules.'
+    });
+    return;
+  }
+  try {
+    const response = await fetch("/adminportal/api/user-allowed-modules/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCookie("csrftoken")
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        user_id: userId,
+        group_id: groupId,
+        modules: droppedModules // [{name, headings}]
+      })
+    });
+    const result = await response.json();
+    if (result.success) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Modules Saved',
+        text: 'Modules have been assigned to the user and group.'
+      });
+      showStep(3);
+      // Refresh the user table after navigating to step 3
+      fetchAndRenderUsers(1);
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: result.error || "Failed to save modules"
+      });
+    }
+  } catch (error) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Unexpected Error',
+      text: 'An unexpected error occurred. Please try again.'
+    });
+  }
+};
+</script>
+
+
+
+<!-- Script for handling the module selection modal: lets users choose modules and 
+   their table headings for user provisioning, shows a preview grid
+   and manages modal open/close logic -->
+<script nonce="{{ csp_nonce }}">
+   // --- Module & Headings Data ---
+   const allModulesV2 = [
+     {
+       name: "Data Upload",
+       default: ["Single Upload", "Bulk Upload", "Preview Table Edit"],
+     },
+     {
+       name: "DP Pick Table",
+       default: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Version",
+         "Tray Cate-Capacity",
+         "Source",
+         "No of Trays",
+         "Input Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+     },
+   
+     {
+       name: "DP Complete Table",
+       default: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Version",
+         "Tray Cate-Capacity",
+         "Source",
+         "No of Trays",
+         "Input Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Recovery Bulk Upload",
+       default: ["Bulk Upload File", "Preview Table Edit"],
+     },
+     {
+       name: "Recovery Pick Table",
+       default: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "Total Quantity",
+         "Process Status",
+         "Action",
+         "Batch Status",
+         "Current Location",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Recovery Complete Table",
+       default: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Version",
+         "Tray Cate-Capacity",
+         "Source",
+         "No of Trays",
+         "Input Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Input Main Table",
+       default: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Version",
+         "Tray Cate-Capacity",
+         "Source",
+         "No of Trays",
+         "Input Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Input Complete Table",
+       default: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Tray Category-Capacity",
+         "Input Source",
+         "No of Trays",
+         "LOT Qty",
+         "Physical Qty",
+         "IPA Wiping",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Input Accept Table",
+       default: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stock No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Tray Category-Capacity",
+         "Input Source",
+         "No of Trays",
+         "LOT Qty",
+         "Physical Qty",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Input Reject Table",
+       default: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Tray Category-Capacity",
+         "Input Source",
+         "No of Trays",
+         "Reject Qty",
+         "Rejection Reasons",
+       ],
+     },
+     {
+       name: "Brass QC Pick Table",
+       default: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "LOT Quantity",
+         "Physical Quantity",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Batch Status",
+         "Current Location",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Brass QC Complete Table",
+       default: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "LOT Quantity",
+         "Physical Quantity",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Batch Status",
+         "Current Location",
+         "Remarks",
+       ],
+     },
+     {
+       name: "IQF Pick Table",
+       default: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "LOT Quantity",
+         "Physical Quantity",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Batch Status",
+         "Current Location",
+         "Remarks",
+       ],
+     },
+     {
+       name: "IQF Complete Table",
+       default: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "LOT Quantity",
+         "Physical Quantity",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Batch Status",
+         "Current Location",
+         "Remarks",
+       ],
+     },
+     {
+       name: "IQF Reject Table",
+       default: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "Reject Quantity",
+         "Reject Reason",
+       ],
+     },
+     { name: "Jig Loading", default: ["Jig ID", "Operator", "Load Time"] },
+     { name: "Jig Unloading", default: ["Jig ID", "Operator", "Unload Time"] },
+     { name: "IP Inspection", default: ["Part No", "Inspector", "Remarks"] },
+     { name: "Nickel Inspection", default: ["Sample", "Inspector", "Nickel %"] },
+     { name: "Nickel Audit", default: ["Audit Date", "Auditor", "Findings"] },
+   ];
+   
+   // --- Modal Open/Close ---
+   document.getElementById("moduleDropdownBtn").onclick = function (e) {
+     e.preventDefault();
+     openModuleSelectModalV2();
+   };
+   function openModuleSelectModalV2() {
+     renderModuleSelectList();
+     renderModuleHeadingsSection();
+     renderModulePreviewGrid();
+     document.getElementById("moduleSelectModalV2").classList.add("show");
+   }
+   function closeModuleSelectModalV2() {
+     document.getElementById("moduleSelectModalV2").classList.remove("show");
+   }
+   // Hide modal when clicking outside content
+   document
+     .getElementById("moduleSelectModalV2")
+     .addEventListener("click", function (e) {
+       if (e.target === this) closeModuleSelectModalV2();
+     });
+   
+   // --- State ---
+   let selectedModulesV2 = [];
+   let selectedHeadingsV2 = {}; // { moduleName: [headings] }
+   
+   // --- Render Modules as Checkboxes ---
+   function renderModuleSelectList() {
+     const container = document.getElementById("moduleSelectList");
+     container.innerHTML = "";
+     allModulesV2.forEach((mod) => {
+       const label = document.createElement("label");
+       label.style =
+         "display:flex;align-items:center;gap:0.3rem;background:#f1f5f9;padding:0.3rem 0.7rem;border-radius:6px;cursor:pointer;";
+       const cb = document.createElement("input");
+       cb.type = "checkbox";
+       cb.value = mod.name;
+       cb.checked = selectedModulesV2.includes(mod.name);
+       cb.onchange = function () {
+         if (cb.checked) {
+           selectedModulesV2.push(mod.name);
+           selectedHeadingsV2[mod.name] = [...mod.default];
+         } else {
+           selectedModulesV2 = selectedModulesV2.filter((m) => m !== mod.name);
+           delete selectedHeadingsV2[mod.name];
+         }
+         renderModuleHeadingsSection();
+         renderModulePreviewGrid();
+       };
+       label.appendChild(cb);
+       label.appendChild(document.createTextNode(mod.name));
+       container.appendChild(label);
+     });
+   }
+   
+   // --- Render Headings Selection for Each Module ---
+   function renderModuleHeadingsSection() {
+     const section = document.getElementById("moduleHeadingsSection");
+     section.innerHTML = "";
+     selectedModulesV2.forEach((modName) => {
+       const mod = allModulesV2.find((m) => m.name === modName);
+       if (!mod) return;
+       const div = document.createElement("div");
+       div.style =
+         "margin-bottom:0.7rem;background:#f8fafc;padding:0.6rem 0.7rem;border-radius:6px;";
+       const title = document.createElement("div");
+       title.style = "font-weight:600;color:#2563eb;margin-bottom:0.3rem;";
+       title.textContent = modName + " - Select Headings";
+       div.appendChild(title);
+   
+       // Headings checkboxes
+       mod.default.forEach((head) => {
+         const label = document.createElement("label");
+         label.style = "margin-right:1.2em;font-weight:500;";
+         const cb = document.createElement("input");
+         cb.type = "checkbox";
+         cb.value = head;
+         cb.checked =
+           selectedHeadingsV2[modName] &&
+           selectedHeadingsV2[modName].includes(head);
+         cb.onchange = function () {
+           if (cb.checked) {
+             if (!selectedHeadingsV2[modName].includes(head))
+               selectedHeadingsV2[modName].push(head);
+           } else {
+             selectedHeadingsV2[modName] = selectedHeadingsV2[modName].filter(
+               (h) => h !== head
+             );
+           }
+           renderModulePreviewGrid();
+         };
+         label.appendChild(cb);
+         label.appendChild(document.createTextNode(" " + head));
+         div.appendChild(label);
+       });
+       section.appendChild(div);
+     });
+   }
+   
+   // --- Render Preview Grid ---
+   function renderModulePreviewGrid() {
+     const grid = document.getElementById("modulePreviewGrid");
+     grid.innerHTML = "";
+     selectedModulesV2.forEach((modName) => {
+       const heads = selectedHeadingsV2[modName] || [];
+       const card = document.createElement("div");
+       card.style =
+         "background:#fff;border-radius:8px;padding:0.5rem 0.5rem 0.7rem 0.5rem;box-shadow:0 1px 3px rgba(0,0,0,0.04);border:1px solid #e5e7eb;";
+       const title = document.createElement("div");
+       title.style = "font-weight:600;color:#2563eb;margin-bottom:0.3rem;";
+       title.textContent = modName;
+       card.appendChild(title);
+   
+       // Table
+       const table = document.createElement("table");
+       table.className = "table";
+       table.style = "width:100%;margin-bottom:0.5rem;font-size:0.95em;";
+       const thead = document.createElement("thead");
+       const tr = document.createElement("tr");
+       heads.forEach((h) => {
+         const th = document.createElement("th");
+         th.textContent = h;
+         tr.appendChild(th);
+       });
+       thead.appendChild(tr);
+       table.appendChild(thead);
+   
+       // Dummy row
+       const tbody = document.createElement("tbody");
+       const row = document.createElement("tr");
+       heads.forEach(() => {
+         const td = document.createElement("td");
+         td.textContent = "—";
+         row.appendChild(td);
+       });
+       tbody.appendChild(row);
+       table.appendChild(tbody);
+   
+       card.appendChild(table);
+       grid.appendChild(card);
+     });
+   }
+   
+   // --- Apply Selection ---
+   function applyModuleSelectionV2() {
+     // Show chosen modules as tiles (if you want to update another part of your UI, do it here)
+     closeModuleSelectModalV2();
+   }
+   
+   // --- Optional: Open modal on "Choose modules" label click as well ---
+   document.getElementById("moduleDropdownLabel").onclick = function (e) {
+     e.preventDefault();
+     openModuleSelectModalV2();
+   };
+</script>
+<!-- Script for rendering draggable module buttons and a dropzone for configuring module headings, allowing users to drag modules, drop them, 
+   and manage their headings visually for user provisioning. -->
+<script nonce="{{ csp_nonce }}">
+   // filepath: a:\Workspace\Server_Setup_TTT\New_TTT_V2\static\templates\Settings.html
+   
+   const modulesList = [
+     {
+       name: "Data Upload",
+       headings: ["Single Upload", "Bulk Upload", "Preview Table Edit"],
+       file_name: "Day_Planning/DP_BulkUpload.html"
+     },
+   
+     {
+       name: "DP Pick Table",
+       headings: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Version",
+         "Tray Cate-Capacity",
+         "Source",
+         "No of Trays",
+         "Input Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+       file_name: "Day_Planning/DP_PickTable.html"
+     },
+     {
+       name: "DP Complete Table",
+       headings: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Version",
+         "Tray Cate-Capacity",
+         "Source",
+         "No of Trays",
+         "Input Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+       file_name: "Day_Planning/DP_Completed_Table.html"
+     },
+     {
+       name: "Recovery Bulk Upload",
+       headings: ["Bulk Upload File", "Preview Table Edit"],
+     },
+     {
+       name: "Recovery Pick Table",
+       headings: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "Total Quantity",
+         "Process Status",
+         "Action",
+         "Batch Status",
+         "Current Location",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Recovery Complete Table",
+       headings: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Version",
+         "Tray Cate-Capacity",
+         "Source",
+         "No of Trays",
+         "Input Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Input Main Table",
+       headings: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Version",
+         "Tray Cate-Capacity",
+         "Source",
+         "No of Trays",
+         "Input Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Input Complete Table",
+       headings: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Tray Category-Capacity",
+         "Input Source",
+         "No of Trays",
+         "LOT Qty",
+         "Physical Qty",
+         "IPA Wiping",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Input Accept Table",
+       headings: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Polishing Stock No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Tray Category-Capacity",
+         "Input Source",
+         "No of Trays",
+         "LOT Qty",
+         "Physical Qty",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Lot Status",
+         "Current Stage",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Input Reject Table",
+       headings: [
+         "S.No",
+         "Last Updated",
+         "Plating Stk No",
+         "Plating Color",
+         "Category",
+         "Polish Finish",
+         "Tray Category-Capacity",
+         "Input Source",
+         "No of Trays",
+         "Reject Qty",
+         "Rejection Reasons",
+       ],
+     },
+     {
+       name: "Brass QC Pick Table",
+       headings: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "LOT Quantity",
+         "Physical Quantity",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Batch Status",
+         "Current Location",
+         "Remarks",
+       ],
+     },
+     {
+       name: "Brass QC Complete Table",
+       headings: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "LOT Quantity",
+         "Physical Quantity",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Batch Status",
+         "Current Location",
+         "Remarks",
+       ],
+     },
+     {
+       name: "IQF Pick Table",
+       headings: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "LOT Quantity",
+         "Physical Quantity",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Batch Status",
+         "Current Location",
+         "Remarks",
+       ],
+     },
+     {
+       name: "IQF Complete Table",
+       headings: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "LOT Quantity",
+         "Physical Quantity",
+         "Accept Qty",
+         "Reject Qty",
+         "Process Status",
+         "Action",
+         "Batch Status",
+         "Current Location",
+         "Remarks",
+       ],
+     },
+     {
+       name: "IQF Reject Table",
+       headings: [
+         "S.No",
+         "Date and Time",
+         "Model/Stock No",
+         "Plating Color",
+         "Polish Finish",
+         "Version",
+         "Source - Location",
+         "Tray Type Capacity",
+         "No of Trays",
+         "Reject Quantity",
+         "Reject Reason",
+       ],
+     },
+     { name: "Jig Loading", headings: ["Jig ID", "Operator", "Load Time"] },
+     { name: "Jig Unloading", headings: ["Jig ID", "Operator", "Unload Time"] },
+     { name: "IP Inspection", headings: ["Part No", "Inspector", "Remarks"] },
+     {
+       name: "Nickel Inspection",
+       headings: ["Sample", "Inspector", "Nickel %"],
+     },
+     { name: "Nickel Audit", headings: ["Audit Date", "Auditor", "Findings"] },
+     {
+       name: "Final Packing",
+       headings: ["Pack ID", "Supervisor", "Packed Qty"],
+     },
+   ];
+   
+   // 10 visually distinct, professional pastel shades and neutral borders
+   const pastelShades = [
+     "#f3f4f6",
+     "#e0f2fe",
+     "#f1f5f9",
+     "#fce7f3",
+     "#f3e8ff",
+     "#fef3c7",
+     "#e0e7ff",
+     "#dcfce7",
+     "#fee2e2",
+     "#fef9c3",
+   ];
+   const borderShades = [
+     "#d1d5db",
+     "#38bdf8",
+     "#cbd5e1",
+     "#f472b6",
+     "#a78bfa",
+     "#fbbf24",
+     "#818cf8",
+     "#34d399",
+     "#f87171",
+     "#eab308",
+   ];
+   
+   // State
+   let droppedModules = []; // [{name, headings: [checked]}]
+   
+   // Render module buttons
+   function renderModuleBtnGrid() {
+     const grid = document.getElementById("moduleBtnGrid");
+     grid.innerHTML = "";
+   
+     // Day Planning Module
+     const dpModules = ["Data Upload", "DP Pick Table", "DP Complete Table"];
+     const dpColor = "#e0f2fe";
+     const dpBorder = "#38bdf8";
+   
+     // Recovery modules  ---
+     const recoveryModules = [
+       "Recovery Bulk Upload",
+       "Recovery Pick Table",
+       "Recovery Complete Table",
+     ];
+     const recoveryColors = ["#fce7f3"];
+     const recoveryBorders = ["#f472b6"];
+   
+     // Input Screening
+     const inputModules = [
+       "Input Main Table",
+       "Input Complete Table",
+       "Input Accept Table",
+       "Input Reject Table",
+     ];
+     const inputBg = "rgb(220, 252, 231)";
+     const inputColor = "rgb(51, 65, 85)";
+     const inputBorder = "1.5px solid rgb(52, 211, 153)";
+   
+     // Brass QC
+     const brassIqfModules = [
+       "Brass QC Pick Table",
+       "Brass QC Complete Table",
+       "IQF Pick Table",
+       "IQF Complete Table",
+       "IQF Reject Table",
+     ];
+     const brassIqfBg = "rgb(254, 243, 199)";
+     const brassIqfColor = "rgb(51, 65, 85)";
+     const brassIqfBorder = "1.5px solid rgb(251, 191, 36)";
+   
+     modulesList.forEach((mod, idx) => {
+       const btn = document.createElement("button");
+       btn.type = "button";
+       btn.textContent = mod.name;
+       btn.draggable = true;
+       btn.className = "btn btn-secondary btn-sm";
+   
+       /// DP modules
+       if (dpModules.includes(mod.name)) {
+         btn.style = `
+       margin-bottom:0.2em;
+       background:${dpColor};
+       color:#334155;
+       border:1.5px solid ${dpBorder};
+       font-weight:600;
+       border-radius:30px;
+       box-shadow:0 1px 2px #e0e7ef;
+       transition:background 0.2s;
+       cursor:grab;
+     `;
+       } else if (recoveryModules.includes(mod.name)) {
+         // All Recovery modules get the same color and border
+         btn.style = `
+         margin-bottom:0.2em;
+         background:${recoveryColors[0]};
+         color:#334155;
+         border:1.5px solid ${recoveryBorders[0]};
+         font-weight:600;
+         border-radius:30px;
+         box-shadow:0 1px 2px #e0e7ef;
+         transition:background 0.2s;
+         cursor:grab;
+       `;
+       } else if (inputModules.includes(mod.name)) {
+         btn.style = `
+         margin-bottom:0.2em;
+         background:${inputBg};
+         color:${inputColor};
+         border:${inputBorder};
+         font-weight:600;
+         border-radius:30px;
+         box-shadow:0 1px 2px #e0e7ef;
+         transition:background 0.2s;
+         cursor:grab;
+       `;
+       } else if (brassIqfModules.includes(mod.name)) {
+         btn.style = `
+     margin-bottom:0.2em;
+     background:${brassIqfBg};
+     color:${brassIqfColor};
+     border:${brassIqfBorder};
+     font-weight:600;
+     border-radius:30px;
+     box-shadow:0 1px 2px #e0e7ef;
+     transition:background 0.2s;
+     cursor:grab;
+   `;
+       } else {
+         // Default style for other modules
+         btn.style = `
+         margin-bottom:0.2em;
+         background:${pastelShades[idx % pastelShades.length]};
+         color:#334155;
+         border:1.5px solid ${borderShades[idx % borderShades.length]};
+         font-weight:600;
+         border-radius:30px;
+         box-shadow:0 1px 2px #e0e7ef;
+         transition:background 0.2s;
+         cursor:grab;
+       `;
+       }
+   
+       // --------------------------------------------
+   
+       btn.ondragstart = function (e) {
+         e.dataTransfer.setData("text/plain", mod.name);
+         setTimeout(() => btn.classList.add("dragging"), 0);
+       };
+       btn.ondragend = function () {
+         btn.classList.remove("dragging");
+       };
+       // Highlight if already dropped
+       // --- In the "already dropped" highlight block, update as below ---
+       // ...inside renderModuleBtnGrid, replace the highlight block with:
+   
+       if (droppedModules.find((m) => m.name === mod.name)) {
+         if (dpModules.includes(mod.name)) {
+           btn.style.background = "#2563eb";
+           btn.style.color = "#fff";
+           btn.style.border = `1.5px solid ${dpBorder}`;
+         } else if (recoveryModules.includes(mod.name)) {
+           btn.style.background = recoveryBorders[0];
+           btn.style.color = "#fff";
+           btn.style.border = `1.5px solid ${recoveryBorders[0]}`;
+         } else if (inputModules.includes(mod.name)) {
+           btn.style.background = "rgb(52, 211, 153)";
+           btn.style.color = "#fff";
+           btn.style.border = "1.5px solid rgb(52, 211, 153)";
+         } else if (brassIqfModules.includes(mod.name)) {
+           btn.style.background = "rgb(251, 191, 36)";
+           btn.style.color = "#fff";
+           btn.style.border = "1.5px solid rgb(251, 191, 36)";
+         } else {
+           btn.style.background = "#334155";
+           btn.style.color = "#fff";
+           btn.style.border = `1.5px solid ${
+             borderShades[idx % borderShades.length]
+           }`;
+         }
+   
+         btn.style.cursor = "not-allowed";
+       }
+       // ---------------------------------------------------------------
+   
+       grid.appendChild(btn);
+     });
+   }
+   renderModuleBtnGrid();
+   
+   // Render dropped modules and heading checkboxes
+   function renderSelectedModulesContainer() {
+     const cont = document.getElementById("selectedModulesContainer");
+     cont.innerHTML = `
+     <div id="selectedModulesContainer" style="margin-top: 1.5rem">
+   <div style="font-weight:600; color:#2563eb; margin-bottom:0.5rem; font-size:1.07em;">
+     Selected Modules for the Visibility
+   </div>
+     <div id="dropZone"
+       style="min-height:70px;padding:1.2em 0.5em;border:2px dashed #cbd5e1;border-radius:8px;background:#f8fafc;display:flex;flex-wrap:wrap;gap:1.2em;align-items:flex-start;width: 100%;">
+       <span id="dropZonePlaceholder" style="color:#94a3b8;font-size:1em;">Drag modules here to configure headings</span>
+     </div>
+   `;
+     const dropZone = document.getElementById("dropZone");
+     dropZone.ondragover = function (e) {
+       e.preventDefault();
+       dropZone.style.background = "#f1f5f9";
+     };
+     dropZone.ondragleave = function () {
+       dropZone.style.background = "#f8fafc";
+     };
+     dropZone.ondrop = function (e) {
+       e.preventDefault();
+       dropZone.style.background = "#f8fafc";
+       const modName = e.dataTransfer.getData("text/plain");
+       if (!droppedModules.find((m) => m.name === modName)) {
+         const mod = modulesList.find((m) => m.name === modName);
+          if (mod) {
+            droppedModules.push({
+              name: mod.name,
+              headings: [...mod.headings],
+              file_name: mod.file_name // <-- Store file name
+            });
+            renderModuleBtnGrid();
+           renderSelectedModulesContainer();
+          }
+/*          if (droppedModules.length < modulesList.length) {
+           droppedModules.push({ name: mod.name, headings: [...mod.headings] });
+           renderModuleBtnGrid();
+           renderSelectedModulesContainer();
+         } */
+       }
+     };
+   
+     // Show dropped modules with heading checkboxes
+     droppedModules.forEach((mod, idx) => {
+       const card = document.createElement("div");
+       card.style = `
+       background:${pastelShades[idx % pastelShades.length]};
+       border:1.5px solid ${borderShades[idx % borderShades.length]};
+       border-radius:8px;
+       padding:0.7em 1em 1em 1em;
+       min-width:180px;
+       box-shadow:0 2px 6px #e0e7ef;
+       position:relative;
+     `;
+       // Remove button
+       const removeBtn = document.createElement("button");
+       removeBtn.type = "button";
+       removeBtn.textContent = "×";
+       removeBtn.title = "Remove module";
+       removeBtn.style =
+         "position:absolute;top:7px;right:10px;background:none;border:none;color:#dc2626;font-size:1.2em;cursor:pointer;";
+       removeBtn.onclick = function () {
+         droppedModules = droppedModules.filter((m) => m.name !== mod.name);
+         renderModuleBtnGrid();
+         renderSelectedModulesContainer();
+       };
+       card.appendChild(removeBtn);
+   
+       // Module name
+       const title = document.createElement("div");
+       title.textContent = mod.name;
+       title.style = "font-weight:600;color:#334155;margin-bottom:0.4em;";
+       card.appendChild(title);
+   
+   
+
+      // Headings checkboxes only (no edit/eye icons)
+      const headingsGrid = document.createElement("div");
+      headingsGrid.className = "module-headings-grid";
+      mod.headings.forEach((heading, hidx) => {
+        const label = document.createElement("label");
+        label.style = "margin-right:1.2em;font-weight:500;";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.value = heading;
+        cb.checked = true; // checked by default
+        cb.onchange = function () {
+          if (cb.checked) {
+            // Add heading if checked and not already present
+            if (!mod.headings.includes(heading)) mod.headings.push(heading);
+            if (mod.inaccessible) mod.inaccessible = mod.inaccessible.filter(h => h !== heading);
+          } else {
+            // Remove heading if unchecked
+            mod.headings = mod.headings.filter(h => h !== heading);
+            if (!mod.inaccessible) mod.inaccessible = [];
+            if (!mod.inaccessible.includes(heading)) mod.inaccessible.push(heading);
+          }
+        };
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(" " + heading));
+        headingsGrid.appendChild(label);
+      });
+      card.appendChild(headingsGrid);
+
+   
+       dropZone.appendChild(card);
+     });
+   
+     // Hide placeholder if any module is dropped
+     document.getElementById("dropZonePlaceholder").style.display =
+       droppedModules.length ? "none" : "";
+   }
+   renderSelectedModulesContainer();
+</script>
+
+
+
+<!--Script for handling the step-wise navigation and breadcrumb highlighting 
+   in the user creation, module selection and user table sections. -->
+<script nonce="{{ csp_nonce }}">
+   // filepath: a:\Workspace\Server_Setup_TTT\New_TTT_V2\static\templates\Settings.html
+   
+   function showStep(step) {
+     document.getElementById("step-user-form").style.display =
+       step === 1 ? "" : "none";
+     document.getElementById("step-module-select").style.display =
+       step === 2 ? "" : "none";
+     document.getElementById("step-user-table").style.display =
+       step === 3 ? "" : "none";
+     updateBreadcrumbUI(step); // <-- Dynamically update breadcrumb highlight
+   }
+   
+   function updateBreadcrumbUI(step) {
+     const steps = [
+       document.getElementById("bc-user"),
+       document.getElementById("bc-modules"),
+       document.getElementById("bc-table"),
+     ];
+     steps.forEach((el, idx) => {
+       if (el) {
+         if (idx === step - 1) {
+           el.classList.add("active");
+         } else {
+           el.classList.remove("active");
+         }
+       }
+     });
+   }
+   
+   showStep(1);
+   
+   document.getElementById("btn-user-next") && (document.getElementById("btn-user-next").onclick = function () {
+     showStep(2);
+   });
+   document.getElementById("btn-module-before") && (document.getElementById("btn-module-before").onclick = function () {
+     showStep(1);
+   });
+   document.getElementById("btn-module-next") && (document.getElementById("btn-module-next").onclick = function () {
+     showStep(3);
+   });
+   
+   // Breadcrumb step click handlers (optional, if not already present)
+   document.getElementById("bc-user").onclick = function () { showStep(1); };
+   document.getElementById("bc-modules").onclick = function () { showStep(2); };
+   document.getElementById("bc-table").onclick = function () { showStep(3); };
+</script>
+<!-- Script for updating the breadcrumb UI dynamically based on the current step in the user creation process,
+   ensuring the active step is highlighted and previous steps are deactivated. -->
+<script nonce="{{ csp_nonce }}">
+   // Place this script after your showStep function
+   function updateBreadcrumbUI(step) {
+     const steps = [
+       document.getElementById("bc-user"),
+       document.getElementById("bc-modules"),
+       document.getElementById("bc-table"),
+     ];
+     steps.forEach((el, idx) => {
+       if (el) {
+         if (idx === step - 1) {
+           el.classList.add("active");
+         } else {
+           el.classList.remove("active");
+         }
+       }
+     });
+   }
+   const origShowStep = window.showStep;
+   window.showStep = function(step) {
+     origShowStep(step);
+     updateBreadcrumbUI(step);
+   };
+   updateBreadcrumbUI(1);
+</script>
+<!-- // Script for making breadcrumb steps clickable 
+   so users can navigate directly between user creation, module selection, and user table sections. -->
+<script nonce="{{ csp_nonce }}">
+   // filepath: a:\Workspace\Server_Setup_TTT\New_TTT_V2\static\templates\Settings.html
+   
+   document.getElementById("bc-user").style.cursor = "pointer";
+   document.getElementById("bc-modules").style.cursor = "pointer";
+   document.getElementById("bc-table").style.cursor = "pointer";
+   document.getElementById("bc-user").onclick = function () {
+   showStep(1);
+   };
+   document.getElementById("bc-modules").onclick = function () {
+   showStep(2);
+   };
+   document.getElementById("bc-table").onclick = function () {
+   showStep(3);
+   };
+</script>
+<!-- // Script for dynamically fetching and populating the Department and 
+   Role dropdowns (departmentSelect and roleSelect) 
+   in the user form with data from the backend API when the page loads. -->
+<script nonce="{{ csp_nonce }}">
+   function populateDepartments() {
+     fetch("/adminportal/api/departments/")
+       .then(response => response.json())
+       .then(data => {
+         const departmentSelect = document.getElementById("departmentSelect");
+         if (!departmentSelect) return;
+         departmentSelect.innerHTML = '<option value="" disabled selected>Select Department</option>';
+         data.forEach(dept => {
+           const option = document.createElement("option");
+           option.value = dept.id;
+           option.text = dept.name;
+           departmentSelect.appendChild(option);
+         });
+       });
+   }
+   
+   function populateRoles() {
+     fetch("/adminportal/api/roles/")
+       .then(response => response.json())
+       .then(data => {
+         const roleSelect = document.getElementById("roleSelect");
+         if (!roleSelect) return;
+         roleSelect.innerHTML = '<option value="" disabled selected>Select Role</option>';
+         data.forEach(role => {
+           const option = document.createElement("option");
+           option.value = role.id;
+           option.text = role.name;
+           roleSelect.appendChild(option);
+         });
+       });
+   }
+   
+   function populateUserCategories() {
+       fetch("/adminportal/api/group-modules/")
+         .then(response => response.json())
+         .then(data => {
+           const userCategorySelect = document.getElementById("userCategorySelect");
+           if (!userCategorySelect) return;
+           userCategorySelect.innerHTML = '<option value="" disabled selected>Select User Category</option>';
+           data.forEach(group => {
+             const option = document.createElement("option");
+             option.value = group.id;
+             option.text = group.name;
+             userCategorySelect.appendChild(option);
+           });
+         });
+     }
+   
+   document.getElementById("userCategorySelect").addEventListener("change", function() {
+     const groupId = this.value;
+     if (!groupId) return;
+     fetch(`/adminportal/api/group-modules/${groupId}/`)
+       .then(res => res.json())
+       .then(data => {
+         if (data.success) {
+           // Set droppedModules to the modules of this group
+           droppedModules = data.modules.map(m => ({
+             name: m.name,
+             headings: m.headings
+           }));
+           renderModuleBtnGrid();
+           renderSelectedModulesContainer();
+         }
+       });
+   });
+   // Only call after DOM is ready and dropdowns exist
+   document.addEventListener("DOMContentLoaded", function () {
+     populateDepartments();
+     populateRoles();
+     populateUserCategories();
+   });
+</script>
+
+
+<!-- script for strong password suggestions -->
+<script nonce="{{ csp_nonce }}">
+   // --- Instant Password Validation ---
+   function checkPasswordStrength(pwd) {
+     let score = 0;
+     if (pwd.length >= 8) score++;
+     if (/[A-Z]/.test(pwd)) score++;
+     if (/[a-z]/.test(pwd)) score++;
+     if (/\d/.test(pwd)) score++;
+     if (/[^A-Za-z0-9]/.test(pwd)) score++;
+     return score;
+   }
+   
+   function updatePasswordFeedback() {
+     const pwd = document.getElementById("password").value;
+     const confirm = document.getElementById("confirmPassword").value;
+     const msgDiv = document.getElementById("passwordStrengthMsg");
+     const fillInline = document.getElementById("passwordStrengthFillInline");
+     const live = document.getElementById("passwordStrengthLive");
+   
+     let score = checkPasswordStrength(pwd);
+     let strength = "";
+     let color = "#e5e7eb";
+     let width = "0%";
+     if (!pwd) {
+       strength = "";
+       color = "#e5e7eb";
+       width = "0%";
+     } else if (score <= 2) {
+       strength = "Weak";
+       color = "#dc2626";
+       width = "33%";
+     } else if (score === 3 || score === 4) {
+       strength = "Medium";
+       color = "#f59e42";
+       width = "66%";
+     } else if (score === 5) {
+       strength = "Strong";
+       color = "#22c55e";
+       width = "100%";
+     }
+     if (fillInline) {
+       fillInline.style.width = width;
+       fillInline.style.background = color;
+     }
+     if (live) {
+       live.textContent = strength;
+       live.style.color = color;
+     }
+     //msgDiv.textContent = strength ? `Password strength: ${strength}` : "";
+   
+     if (pwd && confirm && pwd === confirm && score >= 3) {
+       document.getElementById("passwordMatchIcon").style.display = "";
+     } else {
+       document.getElementById("passwordMatchIcon").style.display = "none";
+     }
+   }
+   
+   
+   document.getElementById("password").addEventListener("input", updatePasswordFeedback);
+   document.getElementById("confirmPassword").addEventListener("input", updatePasswordFeedback);
+   
+   function togglePassword(inputId, iconSpan) {
+     const input = document.getElementById(inputId);
+     if (!input) return;
+     const svg = iconSpan.querySelector("svg");
+     if (input.type === "password") {
+       input.type = "text";
+       svg.innerHTML = `
+         <path stroke="#2563eb" stroke-width="2" d="M1.5 12S5.5 5.5 12 5.5 22.5 12 22.5 12 18.5 18.5 12 18.5 1.5 12 1.5 12Z"/>
+         <circle cx="12" cy="12" r="3.5" stroke="#2563eb" stroke-width="2"/>
+         <line x1="4" y1="20" x2="20" y2="4" stroke="#dc2626" stroke-width="2"/>
+       `;
+     } else {
+       input.type = "password";
+       svg.innerHTML = `
+         <path stroke="#64748b" stroke-width="2" d="M1.5 12S5.5 5.5 12 5.5 22.5 12 22.5 12 18.5 18.5 12 18.5 1.5 12 1.5 12Z"/>
+         <circle cx="12" cy="12" r="3.5" stroke="#64748b" stroke-width="2"/>
+       `;
+     }
+   }
+   
+   // Make clicking the SVG itself also toggle password visibility
+   document.getElementById('eye-password').addEventListener('click', function(e) {
+     e.stopPropagation();
+     togglePassword('password', this.parentElement);
+   });
+   document.getElementById('eye-confirmPassword').addEventListener('click', function(e) {
+     e.stopPropagation();
+     togglePassword('confirmPassword', this.parentElement);
+   });
+</script>
+<script nonce="{{ csp_nonce }}">
+   document.addEventListener('DOMContentLoaded', function() {
+     const htmlFileSelect = document.getElementById('id_html_file');
+     const headingsTextarea = document.getElementById('id_headings');
+     if (htmlFileSelect && headingsTextarea) {
+         htmlFileSelect.addEventListener('change', function() {
+             const file = htmlFileSelect.value;
+             if (!file) return;
+             fetch(`/adminportal/extract_headings/?html_file=${encodeURIComponent(file)}`)
+                 .then(res => res.json())
+                 .then(data => {
+                     if (data.success) {
+                         headingsTextarea.value = JSON.stringify(data.headings, null, 2);
+                     } else {
+                         headingsTextarea.value = '';
+                         alert('Failed to extract headings: ' + data.error);
+                     }
+                 });
+         });
+     }
+   });
+</script>
+{% endblock content %}

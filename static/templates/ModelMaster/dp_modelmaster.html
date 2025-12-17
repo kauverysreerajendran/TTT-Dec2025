@@ -1,0 +1,1990 @@
+{% extends "base.html" %} 
+{% load static %} 
+{% block content %}
+
+<style>
+    /* Make selected option text black for all dropdowns */
+  select:focus, select option:checked, select option[selected] {
+      color: #111 !important;
+  }
+  select {
+      color: #111 !important;
+  }
+@media (pointer: coarse) and (min-width: 680px) and (max-width: 1400px) {
+  .nav.nav-tabs.elegant-tabs {
+    flex-direction: row !important;
+    gap: 18px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+  .nav.nav-tabs.elegant-tabs .nav-item {
+    order: unset;
+  }
+  .nav.nav-tabs.elegant-tabs .nav-item:last-child .btn,
+  .nav.nav-tabs.elegant-tabs .nav-link.btn {
+    order: unset;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+}
+  .view-data-btn {
+    background-color: #dcf5f6; /* Custom background color */
+    color: rgb(14, 124, 121); /* Text color */
+    border: 1px solid #025b5e; /* Border color */
+    border-radius: 50px; /* Rounded corners */
+    padding: 10px 10px; /* Padding for the button */
+    font-size: 0.9rem; /* Font size */
+    font-weight: 600; /* Font weight */
+    transition: all 0.3s ease; /* Smooth hover effect */
+  }
+
+  .view-data-btn:hover {
+    background-color: #00a2a8; /* Darker background on hover */
+    color: #ffffff; /* Text color on hover */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Add shadow on hover */
+  }
+
+  /* Tab container styling */
+  .nav-tabs {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+  }
+
+  .nav-tabs .nav-item {
+    flex: 0;
+    text-align: center;
+    
+  }
+
+  .nav-tabs .nav-link {
+    display: block;
+    padding: 12px 16px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #374151;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    
+    transition: all 0.3s ease;
+  }
+
+  .nav-tabs .nav-link:hover {
+    background: #e5e7eb;
+    color: #1f2937;
+  }
+
+  .nav-tabs .nav-link.active {
+    background: #028084;
+    color: #ffffff;
+    border-color: #028084;
+    box-shadow: 0 4px 8px rgba(2, 132, 199, 0.2);
+  }
+
+  .form-control {
+    border: 0.5px solid #d1d5db !important; /* Grey border */
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 0.95rem;
+    background: #fafbfc;
+    box-shadow: none; /* Remove shadow */
+    outline: none; /* Remove outline */
+    transition: all 0.3s ease;
+  }
+
+  .row.g-3 > .col-md-6 {
+    flex: 0 0 calc(33.333% - 1rem); /* Adjust width for 3 fields in a row */
+    max-width: calc(33.333% - 1rem);
+  }
+
+  .row.g-3 {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0rem;
+    padding: 20px;
+  }
+
+  .form-control:focus {
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); /* Focus shadow */
+    background: white;
+    transform: translateY(-1px); /* Slight lift effect */
+  }
+
+  .model-master-frame {
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    padding: 0;
+    margin: 20px auto;
+    max-width: 1400px;
+    overflow: hidden;
+    border: 1px solid #e8ecf4;
+  }
+
+  .model-master-header {
+    background: linear-gradient(135deg, #028084 0%, #025b5e 100%);
+    color: white;
+    padding: 15px 15px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .model-master-header::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      45deg,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent
+    );
+    animation: shimmer 3s infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    100% {
+      transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+  }
+
+  .model-master-header h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+.model-master-content {
+    padding: 40px;
+    background: #fafbff;
+    overflow: auto !important;
+    min-height: 280px;
+    max-height: 70vh;
+    height: auto;
+}
+.elegant-tabs {
+  display: flex;
+  justify-content: stretch;
+  align-items: stretch;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 0;
+  margin-bottom: 30px;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+  .elegant-tabs .nav-link {
+    border: 1px solid #dedcdc;
+    background: transparent;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 16px 20px;
+    
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+     flex: 1 1 0;
+    text-align: center;
+    margin: 0;
+    display: flex;
+  }
+
+  .elegant-tabs .nav-link::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    transition: left 0.5s;
+  }
+
+  .elegant-tabs .nav-link:hover::before {
+    left: 100%;
+  }
+
+  .elegant-tabs .nav-link.active {
+    background: linear-gradient(135deg, #66d2ea 0%, #266b84 100%);
+    color: white;
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .elegant-tabs .nav-link:hover:not(.active) {
+    background: white;
+    color: #028084;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .tab-content-frame {
+    background: white;
+    border-radius: 16px;
+    padding: 0px;
+    /* border: 1px solid #e8ecf4; */
+    position: relative;
+    /* overflow: hidden;
+  }
+
+  .tab-content-frame::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+  }
+
+  .form-section-elegant {
+    margin-bottom: 0;
+  }
+
+  .form-section-elegant .form-label {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+  }
+
+.form-section-elegant .form-control, .form-section-elegant .form-select {
+    border: 0.5px solid #d1d5db;
+    border-radius: 10px;
+    padding: 8px !important;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    background: #fafbfc;
+    box-shadow: none;
+    outline: none;
+}
+
+  .form-section-elegant .form-control:focus,
+  .form-section-elegant .form-select:focus {
+    border-color: #d1d5db !important;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    background: white;
+    transform: translateY(-1px);
+  }
+
+  .form-section-elegant .form-check {
+    padding: 15px 20px;
+    transition: all 0.3s ease;
+  }
+
+  .form-section-elegant .form-check:hover {
+    background: #f0f7ff;
+  }
+
+  .form-section-elegant .form-check-input {
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+  }
+
+  .form-section-elegant .form-check-label {
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+  }
+
+.submit-section {
+    /* background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); */
+    /* border-radius: 89px; */
+    padding: 5px;
+    text-align: center;
+    margin-top: 30px;
+    /* border: 1px solid #e2e8f0; */
+}
+
+  .btn-elegant-primary {
+    background: linear-gradient(135deg, #028084 0%, #028084 100%);
+    border: none;
+    color: white;
+    padding: 16px 40px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  }
+
+  .btn-elegant-primary::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    transition: left 0.5s;
+  }
+
+  .btn-elegant-primary:hover::before {
+    left: 100%;
+  }
+
+  .btn-elegant-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    color: white;
+  }
+
+  .file-upload-elegant {
+    border: 3px dashed #cbd5e1;
+    border-radius: 16px;
+    padding: 30px;
+    text-align: center;
+    background: #f8fafc;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+
+  .file-upload-elegant:hover {
+    border-color: #028084;
+    background: #f0f7ff;
+    transform: scale(1.02);
+  }
+
+  .file-upload-elegant .form-control {
+    display: none;
+  }
+
+  .upload-text {
+    color: #6b7280;
+    font-size: 0.95rem;
+    margin-top: 10px;
+  }
+
+  .upload-icon {
+    font-size: 2rem;
+    color: #9ca3af;
+    margin-bottom: 10px;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .model-master-content {
+      padding: 20px;
+    }
+
+    .tab-content-frame {
+      padding: 20px;
+    }
+
+    .model-master-header {
+      padding: 20px;
+    }
+
+    .model-master-header h3 {
+      font-size: 2rem;
+    }
+
+    .elegant-tabs .nav-link {
+      padding: 12px 16px;
+      font-size: 0.9rem;
+    }
+
+    .submit-section {
+      padding: 20px;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .model-master-frame {
+      margin: 10px;
+      border-radius: 16px;
+    }
+
+    .elegant-tabs {
+      flex-direction: column;
+    }
+
+    .elegant-tabs .nav-item {
+      width: 100%;
+      margin-bottom: 4px;
+    }
+
+    .elegant-tabs .nav-link {
+      text-align: center;
+    }
+  }
+
+  /* Message styling */
+  .alert {
+    border-radius: 10px;
+    margin-bottom: 20px;
+    padding: 15px 20px;
+    font-weight: 500;
+  }
+
+  .alert i {
+    margin-right: 8px;
+  }
+
+  /* Message area styling */
+  .message-area {
+    margin-bottom: 20px;
+  }
+</style>
+
+<div class="model-master-frame">
+  <div class="model-master-header d-flex justify-content-between align-items-center">
+    <h3>Model Master Management System</h3>
+    <a href="{% url 'view_master' %}" class="btn view-data-btn">View Masters</a>
+  </div>
+
+  <div class="model-master-content">
+    <div class="container-fluid p-0">
+      <ul class="nav nav-tabs elegant-tabs" id="modelTabs" role="tablist">
+        <!-- Polish Finish Master -->
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="polish-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#polish"
+            type="button"
+            role="tab"
+            aria-controls="polish"
+            aria-selected="false"
+          >
+            Polish Finish
+          </button>
+        </li>
+        <!-- Plating Color Master -->
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="plating-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#plating"
+            type="button"
+            role="tab"
+            aria-controls="plating"
+            aria-selected="false"
+          >
+            Plating Colors
+          </button>
+        </li>
+        <!-- Tray Type Master -->
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="tray-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#tray"
+            type="button"
+            role="tab"
+            aria-controls="tray"
+            aria-selected="false"
+          >
+            Tray Types
+          </button>
+        </li>
+        <!-- Model Images Master -->
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="images-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#images"
+            type="button"
+            role="tab"
+            aria-controls="images"
+            aria-selected="false"
+          >
+            Model Images
+          </button>
+        </li>
+        <!-- Category Master -->
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="category-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#category-tab-pane" 
+            type="button"
+            role="tab"
+            aria-controls="category"
+            aria-selected="false"
+          >
+            Category
+          </button>
+        </li>
+        <!-- Location Master -->
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="location-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#location"
+            type="button"
+            role="tab"
+            aria-controls="location"
+            aria-selected="false"
+          >
+            Location
+          </button>
+        </li>
+        <!-- TrayId Master -->
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="trayid-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#trayid"
+            type="button"
+            role="tab"
+            aria-controls="trayid"
+            aria-selected="false"
+          >
+            Tray ID
+          </button>
+        </li>
+
+        <!-- IP Rejection Master -->
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="iprejection-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#iprejection"
+            type="button"
+            role="tab"
+            aria-controls="iprejection"
+            aria-selected="false"
+          >
+            IP Rejection
+          </button>
+        </li>
+                <!-- BRASS/IQF Rejection Master -->
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="brassiqf-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#brassiqf"
+            type="button"
+            role="tab"
+            aria-controls="brassiqf"
+            aria-selected="false"
+          >
+            BQ/BA/IQF Rejection
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="nickelrejection-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#nickelrejection"
+            type="button"
+            role="tab"
+            aria-controls="nickelrejection"
+            aria-selected="false"
+          >
+            NQ/NA Rejection
+          </button>
+        </li>
+        <!-- Model Master Tab -->
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link active"
+            id="model-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#model"
+            type="button"
+            role="tab"
+            aria-controls="model"
+            aria-selected="true"
+          >
+            Model Master
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content mt-3" id="modelTabsContent">
+        
+        <!-- 1. Model Master -->
+        <div class="tab-pane fade show active" id="model" role="tabpanel" aria-labelledby="model-tab">
+          <div class="tab-content-frame">
+            <!-- Model Master message area -->
+            <div id="model-message-area" class="message-area"></div>
+            <form class="row g-3 form-section-elegant" id="model-master-form">
+              {% csrf_token %}
+              <!-- Model No -->
+              <div class="col-md-6">
+                <label for="model_no" class="form-label">Model No</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="model_no"
+                  name="model_no"
+                  placeholder="Enter model number"
+                  required
+                />
+              </div>
+
+              <!-- Polish Finish -->
+              <div class="col-md-6">
+                <label for="polish_finish" class="form-label">Polish Finish</label>
+                <select class="form-select" id="polish_finish" name="polish_finish">
+                  <option value="">Select Polish Finish</option>
+                </select>
+              </div>
+
+              <!-- EP Bath Type -->
+              <div class="col-md-6">
+                <label for="ep_bath_type" class="form-label">EP Bath Type</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="ep_bath_type"
+                  name="ep_bath_type"
+                  placeholder="Enter EP Bath Type"
+                  required
+                />
+              </div>
+
+              <!-- Tray Type -->
+              <div class="col-md-6">
+                <label for="tray_type" class="form-label">Tray Type</label>
+                <select class="form-select" id="tray_type" name="tray_type">
+                  <option value="">Select Tray Type</option>
+                </select>
+              </div>
+
+              <!-- Tray Capacity -->
+              <div class="col-md-6">
+                <label for="tray_capacity" class="form-label">Tray Capacity</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="tray_capacity"
+                  name="tray_capacity"
+                  placeholder="Auto-filled from tray type"
+                  min="1"
+                />
+              </div>
+              <div class="col-md-6">
+                <label for="version" class="form-label">Version</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="version"
+                  name="version"
+                  placeholder="Enter version"
+                  required
+                />
+              </div>
+
+              <!-- Images -->
+              <div class="col-md-6">
+                <label for="model_images" class="form-label">Images</label>
+                <select class="form-select" id="model_images" name="model_images" multiple>
+                  <option value="">Select Images</option>
+                </select>
+                <small class="text-muted">
+                  Hold down "Control", or "Command" on a Mac, to select more than one.
+                </small>
+              </div>
+
+              <!-- Source Name (Location Dropdown) -->
+              <div class="col-md-6" style="display: none;">
+                <label for="source_name" class="form-label">Source</label>
+                <select class="form-select" id="source_name" name="source_name">
+                  <option value="">Select Source</option>
+                </select>
+              </div>
+
+              <!-- Category Dropdown -->
+              <div class="col-md-6" style="display: none;">
+                <label for="category" class="form-label">Category</label>
+                <select class="form-select" id="category" name="category">
+                  <option value="">Select Category</option>
+                </select>
+              </div>
+
+              <!-- Submit Section -->
+              <div class="submit-section">
+                <button type="submit" class="btn btn-elegant-primary">Save Model Master</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 2. Polish Finish Type -->
+        <div class="tab-pane fade" id="polish" role="tabpanel" aria-labelledby="polish-tab">
+          <div class="tab-content-frame">
+            <!-- Polish Finish message area -->
+            <div id="polish-message-area" class="message-area"></div>
+            <form class="row g-3 form-section-elegant" id="polish-form">
+              {% csrf_token %}
+              <div class="col-md-6">
+                <label for="polish_finish_name" class="form-label">Polish Finish</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="polish_finish_name"
+                  name="polish_finish"
+                  placeholder="Enter polish finish name"
+                  required
+                />
+              </div>
+              <div class="col-md-6">
+                <label for="polish_internal" class="form-label">Internal ID</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="polish_internal"
+                  name="polish_internal"
+                  placeholder="Enter internal ID"
+                  required
+                />
+              </div>
+              <!-- Submit Section -->
+              <div class="submit-section">
+                <button type="submit" class="btn btn-elegant-primary">Save Polish Finish</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 3. Plating Colors -->
+        <div class="tab-pane fade" id="plating" role="tabpanel" aria-labelledby="plating-tab">
+          <div class="tab-content-frame">
+            <!-- Plating Color message area -->
+            <div id="plating-message-area" class="message-area"></div>
+            <form class="row g-3 form-section-elegant" id="plating-form">
+              {% csrf_token %}
+              <div class="col-md-6">
+                <label for="plating_color" class="form-label">Plating Color</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="plating_color"
+                  name="plating_color"
+                  placeholder="Enter plating color"
+                  required
+                />
+              </div>
+              <div class="col-md-6">
+                <label for="plating_internal" class="form-label">Internal Code</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="plating_internal"
+                  name="plating_color_internal"
+                  placeholder="Enter internal code (max 10 chars)"
+                  maxlength="10"
+                />
+              </div>
+
+              <!-- Jig Unload Zone Checkboxes -->
+              <div class="d-flex align-items-center" style="gap: 20px; margin-top: 10px;">
+                <div class="form-check d-flex align-items-center">
+                  <input
+                    class="form-check-input ms-2"
+                    type="checkbox"
+                    id="jig_unload_zone_1"
+                    name="jig_unload_zone_1"
+                  />
+                  <label class="form-check-label ms-2" for="jig_unload_zone_1">
+                    Jig Unload Zone 1
+                  </label>
+                </div>
+                <div class="form-check d-flex align-items-center">
+                  <input
+                    class="form-check-input ms-2"
+                    type="checkbox"
+                    id="jig_unload_zone_2"
+                    name="jig_unload_zone_2"
+                  />
+                  <label class="form-check-label ms-2" for="jig_unload_zone_2">
+                    Jig Unload Zone 2
+                  </label>
+                </div>
+              </div>
+              
+              <!-- Submit Section -->
+              <div class="submit-section">
+                <button type="submit" class="btn btn-elegant-primary">Save Plating Color</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 4. Tray Types -->
+        <div class="tab-pane fade" id="tray" role="tabpanel" aria-labelledby="tray-tab">
+          <div class="tab-content-frame">
+            <!-- Tray Type message area -->
+            <div id="tray-message-area" class="message-area"></div>
+            <form class="row g-3 form-section-elegant" id="tray-form">
+              {% csrf_token %}
+              <div class="col-md-6">
+                <label for="tray_type_name" class="form-label">Tray Type</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="tray_type_name"
+                  name="tray_type"
+                  placeholder="Enter tray type name"
+                  required
+                />
+              </div>
+              <div class="col-md-6">
+                <label for="tray_capacity_value" class="form-label">Tray Capacity</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="tray_capacity_value"
+                  name="tray_capacity"
+                  placeholder="Enter tray capacity"
+                  min="1"
+                  required
+                />
+              </div>
+              
+              <!-- Submit Section -->
+              <div class="submit-section">
+                <button type="submit" class="btn btn-elegant-primary">Save Tray Type</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 5. Model Images -->
+        <div class="tab-pane fade" id="images" role="tabpanel" aria-labelledby="images-tab">
+          <div class="tab-content-frame">
+            <!-- Model Images message area -->
+            <div id="images-message-area" class="message-area"></div>
+            <form class="row g-3 form-section-elegant" id="images-form" enctype="multipart/form-data">
+              {% csrf_token %}
+              <div class="col-md-12">
+                <label for="model_images_upload" class="form-label">Upload Model Images</label>
+                <input
+                  type="file"
+                  class="form-control"
+                  id="model_images_upload"
+                  name="images"
+                  multiple
+                  accept="image/*"
+                  required
+                />
+                <small class="text-muted">
+                  Supports multiple images (JPG, PNG, GIF). Hold Ctrl to select multiple files.
+                </small>
+              </div>
+              
+              <!-- Submit Section -->
+              <div class="submit-section">
+                <button type="submit" class="btn btn-elegant-primary">Upload Images</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 6. Category -->
+        <div class="tab-pane fade" id="category-tab-pane" role="tabpanel" aria-labelledby="category-tab">
+          <div class="tab-content-frame">
+            <!-- Category message area -->
+            <div id="category-message-area" class="message-area"></div>
+            <form class="row g-3 form-section-elegant" id="category-form" method="post" action="">
+              {% csrf_token %}
+              <div class="col-md-6">
+                <label for="category_name" class="form-label">Category Name</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="category_name"
+                  name="category_name"
+                  placeholder="Enter category name"
+                  required
+                />
+              </div>
+              <div class="col-12">
+                <div class="submit-section">
+                  <button type="submit" class="btn btn-elegant-primary">Save Category</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 7. Location -->
+        <div class="tab-pane fade" id="location" role="tabpanel" aria-labelledby="location-tab">
+          <div class="tab-content-frame">
+            <!-- Location message area -->
+            <div id="location-message-area" class="message-area"></div>
+            <form class="row g-3 form-section-elegant" id="location-form">
+              {% csrf_token %}
+              <div class="col-md-6">
+                <label for="location_name" class="form-label">Location Name</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="location_name"
+                  name="location_name"
+                  placeholder="Enter location name"
+                  required
+                />
+              </div>
+              <div class="col-12">
+                <div class="submit-section">
+                  <button type="submit" class="btn btn-elegant-primary">Save Location</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 8. TrayId -->
+        <div class="tab-pane fade" id="trayid" role="tabpanel" aria-labelledby="trayid-tab">
+          <div class="tab-content-frame">
+            <!-- TrayId message area -->
+            <div id="trayid-message-area" class="message-area"></div>
+            <form class="row g-3 form-section-elegant" id="trayid-form">
+              {% csrf_token %}
+              <div class="col-md-6">
+                <label for="trayid_tray_id" class="form-label">Tray ID</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="trayid_tray_id"
+                  name="tray_id"
+                  placeholder="Enter tray id"
+                  required
+                />
+              </div>
+              <div class="col-md-6">
+                <label for="trayid_tray_type" class="form-label">Tray Type</label>
+                <select class="form-select" id="trayid_tray_type" name="tray_type" required>
+                  <option value="">Select Tray Type</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label for="trayid_tray_capacity" class="form-label">Tray Capacity</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="trayid_tray_capacity"
+                  name="tray_capacity"
+                  placeholder="Auto-filled from Tray Type"
+                  readonly
+                />
+              </div>
+              <div class="col-12">
+                <div class="submit-section">
+                  <button type="submit" class="btn btn-elegant-primary">Save Tray ID</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 9. IP Rejection -->
+        <div class="tab-pane fade" id="iprejection" role="tabpanel" aria-labelledby="iprejection-tab">
+          <div class="tab-content-frame">
+            <!-- IP Rejection message area -->
+            <div id="iprejection-message-area" class="message-area"></div>
+            <form class="row g-3 form-section-elegant" id="iprejection-form">
+              {% csrf_token %}
+              <div class="col-md-6">
+                <label for="iprejection_reason" class="form-label">Rejection Reason</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="iprejection_reason"
+                  name="rejection_reason"
+                  placeholder="Enter rejection reason"
+                  required
+                />
+              </div>
+
+              <div class="col-12">
+                <div class="submit-section">
+                  <button type="submit" class="btn btn-elegant-primary">Save IP Rejection</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+                <!-- 10. BRASS/IQF Rejection -->
+        <div class="tab-pane fade" id="brassiqf" role="tabpanel" aria-labelledby="brassiqf-tab">
+          <div class="tab-content-frame">
+            <!-- BRASS/IQF Rejection message area -->
+            <div id="brassiqf-message-area" class="message-area"></div>
+            <form class="row g-3 form-section-elegant" id="brassiqf-form">
+              {% csrf_token %}
+              <div class="col-md-6">
+                <label for="brassiqf_reason" class="form-label">Rejection Reason</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="brassiqf_reason"
+                  name="rejection_reason"
+                  placeholder="Enter rejection reason"
+                  required
+                />
+              </div>
+
+              <div class="col-12">
+                <div class="submit-section">
+                  <button type="submit" class="btn btn-elegant-primary">Save BRASS/IQF Rejection</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="nickelrejection" role="tabpanel" aria-labelledby="nickelrejection-tab">
+          <div class="tab-content-frame">
+            <!-- Nickel Audit/QC Rejection message area -->
+            <div id="nickelrejection-message-area" class="message-area"></div>
+            <form class="row g-3 form-section-elegant" id="nickelrejection-form">
+              {% csrf_token %}
+              <div class="col-md-6">
+                <label for="nickelrejection_reason" class="form-label">Rejection Reason</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="nickelrejection_reason"
+                  name="rejection_reason"
+                  placeholder="Enter rejection reason"
+                  required
+                />
+              </div>
+              <div class="col-12">
+                <div class="submit-section">
+                  <button type="submit" class="btn btn-elegant-primary">Save Nickel Audit/QC Rejection</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      </div> <!-- End tab-content -->
+    </div> <!-- End container-fluid -->
+  </div> <!-- End model-master-content -->
+</div> <!-- End model-master-frame -->
+
+<!-- JavaScript for API Integration -->
+<script nonce="{{ csp_nonce }}">
+// Get CSRF token
+function getCSRFToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// Helper function to format validation errors into user-friendly messages
+function formatValidationErrors(errors) {
+    if (!errors || typeof errors !== 'object') {
+        return 'Unknown validation error occurred.';
+    }
+    
+    let errorMessages = [];
+    
+    // Loop through each field error
+    for (let field in errors) {
+        let fieldErrors = errors[field];
+        
+        // Convert field name to user-friendly format
+        let fieldName = field
+            .replace(/_/g, ' ')
+            .replace(/([A-Z])/g, ' $1')
+            .toLowerCase()
+            .replace(/^./, str => str.toUpperCase());
+        
+        // Handle array of errors for this field
+        if (Array.isArray(fieldErrors)) {
+            fieldErrors.forEach(error => {
+                errorMessages.push(`${fieldName}: ${error}`);
+            });
+        } else if (typeof fieldErrors === 'string') {
+            errorMessages.push(`${fieldName}: ${fieldErrors}`);
+        }
+    }
+    
+    return errorMessages.length > 0 ? errorMessages.join('<br>') : 'Validation failed.';
+}
+
+// Enhanced show message function for inline display
+function showInlineMessage(messageAreaId, message, isSuccess = true) {
+    const messageArea = document.getElementById(messageAreaId);
+    if (messageArea) {
+        const alertClass = isSuccess ? 'alert-success' : 'alert-danger';
+        messageArea.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+        
+        // Auto-hide success messages after 5 seconds
+        if (isSuccess) {
+            setTimeout(() => {
+                messageArea.innerHTML = '';
+            }, 5000);
+        }
+    }
+}
+
+// Polish Finish API Functions
+const PolishFinishAPI = {
+    create: async function(formData) {
+        try {
+            const response = await fetch('/adminportal/polish-finish/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showInlineMessage('polish-message-area', result.message || 'Polish finish created successfully!', true);
+                document.getElementById('polish_finish_name').value = '';
+                document.getElementById('polish_internal').value = '';
+                this.refreshDropdown();
+            } else {
+                const errorMsg = result.errors ? formatValidationErrors(result.errors) : (result.message || 'Error creating polish finish');
+                showInlineMessage('polish-message-area', errorMsg, false);
+                console.error('Validation errors:', result.errors);
+            }
+            
+            return result;
+        } catch (error) {
+            showInlineMessage('polish-message-area', 'Error creating polish finish: ' + error.message, false);
+            console.error('Error:', error);
+        }
+    },
+    
+    getAll: async function() {
+        try {
+            const response = await fetch('/adminportal/polish-finish/');
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching polish finishes:', error);
+        }
+    },
+    
+    refreshDropdown: async function() {
+        const data = await this.getAll();
+        if (data && data.success) {
+            const select = document.getElementById('polish_finish');
+            select.innerHTML = '<option value="">Select Polish Finish</option>';
+            data.data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.polish_finish;
+                select.appendChild(option);
+            });
+        }
+    }
+};
+
+// Plating Color API Functions
+const PlatingColorAPI = {
+    create: async function(formData) {
+        try {
+            const response = await fetch('/adminportal/plating-color/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showInlineMessage('plating-message-area', result.message || 'Plating color created successfully!', true);
+                document.getElementById('plating_color').value = '';
+                document.getElementById('plating_internal').value = '';
+                document.getElementById('jig_unload_zone_1').checked = false;
+                document.getElementById('jig_unload_zone_2').checked = false;
+            } else {
+                const errorMsg = result.errors ? formatValidationErrors(result.errors) : (result.message || 'Error creating plating color');
+                showInlineMessage('plating-message-area', errorMsg, false);
+                console.error('Validation errors:', result.errors);
+            }
+            
+            return result;
+        } catch (error) {
+            showInlineMessage('plating-message-area', 'Error creating plating color: ' + error.message, false);
+            console.error('Error:', error);
+        }
+    }
+};
+
+// Tray Type API Functions
+const TrayTypeAPI = {
+    create: async function(formData) {
+        try {
+            const response = await fetch('/adminportal/tray-type/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showInlineMessage('tray-message-area', result.message || 'Tray type created successfully!', true);
+                document.getElementById('tray_type_name').value = '';
+                document.getElementById('tray_capacity_value').value = '';
+                this.refreshDropdown();
+            } else {
+                const errorMsg = result.errors ? formatValidationErrors(result.errors) : (result.message || 'Error creating tray type');
+                showInlineMessage('tray-message-area', errorMsg, false);
+                console.error('Validation errors:', result.errors);
+            }
+            
+            return result;
+        } catch (error) {
+            showInlineMessage('tray-message-area', 'Error creating tray type: ' + error.message, false);
+            console.error('Error:', error);
+        }
+    },
+    
+    getAll: async function() {
+        try {
+            const response = await fetch('/adminportal/tray-type/');
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching tray types:', error);
+        }
+    },
+    
+    refreshDropdown: async function() {
+        const data = await this.getAll();
+        if (data && data.success) {
+            const select = document.getElementById('tray_type');
+            select.innerHTML = '<option value="">Select Tray Type</option>';
+            data.data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.tray_type;
+                option.setAttribute('data-capacity', item.tray_capacity);
+                select.appendChild(option);
+            });
+        }
+    }
+};
+
+// Model Image API Functions
+const ModelImageAPI = {
+    upload: async function(filesInput) {
+        try {
+            const formData = new FormData();
+            const files = filesInput.files;
+            
+            for (let i = 0; i < files.length; i++) {
+                formData.append('images', files[i]);
+            }
+            
+            const response = await fetch('/adminportal/model-image/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showInlineMessage('images-message-area', result.message || 'Images uploaded successfully!', true);
+                filesInput.value = '';
+                this.refreshDropdown();
+            } else {
+                const errorMsg = result.errors ? formatValidationErrors(result.errors) : (result.message || 'Error uploading images');
+                showInlineMessage('images-message-area', errorMsg, false);
+                console.error('Validation errors:', result.errors);
+            }
+            
+            return result;
+        } catch (error) {
+            showInlineMessage('images-message-area', 'Error uploading images: ' + error.message, false);
+            console.error('Error:', error);
+        }
+    },
+    
+    getAll: async function() {
+        try {
+            const response = await fetch('/adminportal/model-image/');
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching model images:', error);
+        }
+    },
+    
+    refreshDropdown: async function() {
+        const data = await this.getAll();
+        if (data && data.success) {
+            const select = document.getElementById('model_images');
+            select.innerHTML = '<option value="">Select Images</option>';
+            data.data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = `Master_Image ${item.id}`;
+                select.appendChild(option);
+            });
+        }
+    }
+};
+
+// Model Master API Functions
+const ModelMasterAPI = {
+    create: async function(formData) {
+        try {
+            const response = await fetch('/adminportal/model-master/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showInlineMessage('model-message-area', result.message || 'Model master created successfully!', true);
+                document.getElementById('model-master-form').reset();
+            } else {
+                const errorMsg = result.errors ? formatValidationErrors(result.errors) : (result.message || 'Error creating model master');
+                showInlineMessage('model-message-area', errorMsg, false);
+                console.error('Validation errors:', result.errors);
+            }
+            
+            return result;
+        } catch (error) {
+            showInlineMessage('model-message-area', 'Error creating model master: ' + error.message, false);
+            console.error('Error:', error);
+        }
+    }
+};
+
+// Location API Functions
+const LocationAPI = {
+    create: async function(formData) {
+        try {
+            const response = await fetch('/adminportal/location/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            });
+            const result = await response.json();
+            if (result.success) {
+                showInlineMessage('location-message-area', result.message || 'Location created successfully!', true);
+                document.getElementById('location_name').value = '';
+                this.refreshDropdown();
+            } else {
+                const errorMsg = result.errors ? formatValidationErrors(result.errors) : (result.message || 'Error creating location');
+                showInlineMessage('location-message-area', errorMsg, false);
+                console.error('Validation errors:', result.errors);
+            }
+            return result;
+        } catch (error) {
+            showInlineMessage('location-message-area', 'Error creating location: ' + error.message, false);
+            console.error('Error:', error);
+        }
+    },
+    getAll: async function() {
+        try {
+            const response = await fetch('/adminportal/location/');
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching locations:', error);
+        }
+    },
+    refreshDropdown: async function() {
+        const data = await this.getAll();
+        if (data && data.success) {
+            const select = document.getElementById('source_name');
+            if (select) {
+                select.innerHTML = '<option value="">Select Source</option>';
+                data.data.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.id;
+                    option.textContent = item.location_name;
+                    select.appendChild(option);
+                });
+            }
+        }
+    }
+};
+
+// TrayId API Functions
+const TrayIdAPI = {
+    create: async function(formData) {
+        try {
+            const response = await fetch('/adminportal/tray-id/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            });
+            const result = await response.json();
+            if (result.success) {
+                showInlineMessage('trayid-message-area', result.message || 'Tray ID created successfully!', true);
+                document.getElementById('trayid_tray_id').value = '';
+                document.getElementById('trayid_tray_type').value = '';
+                document.getElementById('trayid_tray_capacity').value = '';
+                this.refreshDropdown();
+            } else {
+                const errorMsg = result.errors ? formatValidationErrors(result.errors) : (result.message || 'Error creating tray id');
+                showInlineMessage('trayid-message-area', errorMsg, false);
+                console.error('Validation errors:', result.errors);
+            }
+            return result;
+        } catch (error) {
+            showInlineMessage('trayid-message-area', 'Error creating tray id: ' + error.message, false);
+            console.error('Error:', error);
+        }
+    },
+    getAll: async function() {
+        try {
+            const response = await fetch('/adminportal/tray-id/');
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching tray ids:', error);
+        }
+    },
+    refreshDropdown: async function() {
+        const data = await this.getAll();
+        if (data && data.success) {
+            // Populate dropdown if needed
+        }
+    }
+};
+
+// IP Rejection API Functions
+const IPRejectionAPI = {
+    create: async function(formData) {
+        try {
+            const response = await fetch('/adminportal/ip-rejection/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            });
+            const result = await response.json();
+            if (result.success) {
+                showInlineMessage('iprejection-message-area', result.message || 'IP Rejection saved successfully!', true);
+                document.getElementById('iprejection_reason').value = '';
+
+            } else {
+                const errorMsg = result.errors ? formatValidationErrors(result.errors) : (result.message || 'Error saving IP Rejection');
+                showInlineMessage('iprejection-message-area', errorMsg, false);
+                console.error('Validation errors:', result.errors);
+            }
+            return result;
+        } catch (error) {
+            showInlineMessage('iprejection-message-area', 'Error saving IP Rejection: ' + error.message, false);
+            console.error('Error:', error);
+        }
+    }
+};
+
+// BRASS/IQF Rejection API Functions
+const BrassIQFRejectionAPI = {
+    create: async function(formData) {
+        try {
+            const response = await fetch('/adminportal/brass-iqf-rejection/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            });
+            const result = await response.json();
+            if (result.success) {
+                showInlineMessage('brassiqf-message-area', result.message || 'BRASS/IQF Rejection saved successfully!', true);
+                document.getElementById('brassiqf_reason').value = '';
+            } else {
+                const errorMsg = result.errors ? formatValidationErrors(result.errors) : (result.message || 'Error saving BRASS/IQF Rejection');
+                showInlineMessage('brassiqf-message-area', errorMsg, false);
+                console.error('Validation errors:', result.errors);
+            }
+            return result;
+        } catch (error) {
+            showInlineMessage('brassiqf-message-area', 'Error saving BRASS/IQF Rejection: ' + error.message, false);
+            console.error('Error:', error);
+        }
+    }
+};
+
+// BRASS/IQF Rejection Form Handler
+document.getElementById('brassiqf-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = {
+        rejection_reason: document.getElementById('brassiqf_reason').value.trim(),
+    };
+    await BrassIQFRejectionAPI.create(formData);
+  });
+
+// Nickel Audit/QC Rejection API Functions
+const NickelAuditQCRejectionAPI = {
+    create: async function(formData) {
+        try {
+            const response = await fetch('/adminportal/nickel-auditqc-rejection/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            });
+            const result = await response.json();
+            if (result.success) {
+                showInlineMessage('nickelrejection-message-area', result.message || 'Nickel Audit/QC Rejection saved successfully!', true);
+                document.getElementById('nickelrejection_reason').value = '';
+            } else {
+                const errorMsg = result.errors ? formatValidationErrors(result.errors) : (result.message || 'Error saving Nickel Audit/QC Rejection');
+                showInlineMessage('nickelrejection-message-area', errorMsg, false);
+                console.error('Validation errors:', result.errors);
+            }
+            return result;
+        } catch (error) {
+            showInlineMessage('nickelrejection-message-area', 'Error saving Nickel Audit/QC Rejection: ' + error.message, false);
+            console.error('Error:', error);
+        }
+    }
+};
+
+// Nickel Audit/QC Rejection Form Handler
+document.getElementById('nickelrejection-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = {
+        rejection_reason: document.getElementById('nickelrejection_reason').value.trim(),
+    };
+    await NickelAuditQCRejectionAPI.create(formData);
+});
+// In setupFormHandlers(), add this after the TrayId Form handler:
+document.getElementById('iprejection-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = {
+        rejection_reason: document.getElementById('iprejection_reason').value.trim(),
+    };
+    await IPRejectionAPI.create(formData);
+});
+// Category API Functions
+const CategoryAPI = {
+    create: async function(formData) {
+        try {
+            const response = await fetch('/adminportal/category/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showInlineMessage('category-message-area', result.message || 'Category created successfully!', true);
+                document.getElementById('category_name').value = '';
+                this.refreshDropdown();
+            } else {
+                const errorMsg = result.errors ? formatValidationErrors(result.errors) : (result.message || 'Error creating category');
+                showInlineMessage('category-message-area', errorMsg, false);
+                console.error('Validation errors:', result.errors);
+            }
+
+            return result;
+        } catch (error) {
+            showInlineMessage('category-message-area', 'Error creating category: ' + error.message, false);
+            console.error('Error:', error);
+        }
+    },
+
+    getAll: async function() {
+        try {
+            const response = await fetch('/adminportal/category/');
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching categories:', error);
+        }
+    },
+
+    refreshDropdown: async function() {
+        const data = await this.getAll();
+        if (data && data.success) {
+            const select = document.getElementById('category');
+            if (select) {
+                select.innerHTML = '<option value="">Select Category</option>';
+                data.data.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.id;
+                    option.textContent = item.category_name;
+                    select.appendChild(option);
+                });
+            }
+        }
+    }
+};
+
+// TrayId Tab: Populate tray_type dropdown and auto-fill tray_capacity
+async function populateTrayIdTrayTypeDropdown() {
+    try {
+        const response = await fetch('/adminportal/tray-type/');
+        const result = await response.json();
+        if (result.success) {
+            const select = document.getElementById('trayid_tray_type');
+            select.innerHTML = '<option value="">Select Tray Type</option>';
+            result.data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.tray_type;
+                option.setAttribute('data-capacity', item.tray_capacity);
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error populating trayid tray_type dropdown:', error);
+    }
+}
+
+// Auto-fill tray_capacity when tray_type changes in TrayId form
+function setupTrayIdTrayTypeAutoFill() {
+    const trayTypeSelect = document.getElementById('trayid_tray_type');
+    const trayCapacityInput = document.getElementById('trayid_tray_capacity');
+    if (trayTypeSelect && trayCapacityInput) {
+        trayTypeSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption && selectedOption.getAttribute('data-capacity')) {
+                trayCapacityInput.value = selectedOption.getAttribute('data-capacity');
+            } else {
+                trayCapacityInput.value = '';
+            }
+        });
+    }
+}
+
+// Auto-fill tray_capacity when tray_type changes in Model Master form
+function setupTrayCapacityAutoFill() {
+    const trayTypeSelect = document.getElementById('tray_type');
+    const trayCapacityInput = document.getElementById('tray_capacity');
+    if (trayTypeSelect && trayCapacityInput) {
+        trayTypeSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption && selectedOption.getAttribute('data-capacity')) {
+                trayCapacityInput.value = selectedOption.getAttribute('data-capacity');
+            } else {
+                trayCapacityInput.value = '';
+            }
+        });
+    }
+}
+
+// Initialize everything when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing...');
+    
+    // Load dropdown data
+    loadDropdownData();
+    
+    // Set up form event handlers
+    setupFormHandlers();
+    
+    // Set up tray capacity auto-fill
+    setupTrayCapacityAutoFill();
+    
+    // Populate TrayId tray_type dropdown
+    populateTrayIdTrayTypeDropdown();
+    
+    // Set up TrayId tray_type auto-fill
+    setupTrayIdTrayTypeAutoFill();
+    
+    console.log('Initialization complete!');
+});
+
+async function loadDropdownData() {
+    try {
+        const response = await fetch('/adminportal/dropdown-data/');
+        const result = await response.json();
+        if (result.success) {
+            const data = result.data;
+            
+            // Populate dropdowns
+            populateSelect('polish_finish', data.polish_finishes, 'id', 'polish_finish');
+            populateSelect('tray_type', data.tray_types, 'id', 'tray_type');
+            populateSelect('model_images', data.model_images, 'id', 'master_image');
+            populateSelect('source_name', data.locations, 'id', 'location_name');
+            populateSelect('category', data.categories, 'id', 'category_name');
+        }
+    } catch (error) {
+        console.error('Error loading dropdown data:', error);
+    }
+}
+
+function populateSelect(selectId, data, valueField, textField) {
+    const select = document.getElementById(selectId);
+    if (select && data) {
+        const placeholder = select.querySelector('option[value=""]');
+        select.innerHTML = '';
+        
+        if (placeholder) {
+            select.appendChild(placeholder);
+        }
+        
+        data.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item[valueField];
+            option.textContent = textField === 'master_image' 
+                ? `Master_Image ${item.id}` 
+                : item[textField];
+            
+            if (selectId === 'tray_type') {
+                option.setAttribute('data-capacity', item.tray_capacity);
+            }
+            
+            select.appendChild(option);
+        });
+    }
+}
+
+function setupFormHandlers() {
+    // Polish Finish Form
+    document.getElementById('polish-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const messageArea = document.getElementById('polish-message-area');
+        messageArea.innerHTML = ""; // Clear previous messages
+
+        const formData = {
+            polish_finish: document.getElementById('polish_finish_name').value.trim(),
+            polish_internal: document.getElementById('polish_internal').value.trim()
+        };
+
+        // Simple validation
+        if (!formData.polish_finish) {
+            messageArea.innerHTML = `<div class="alert alert-danger">Polish finish name cannot be empty.</div>`;
+            return;
+        }
+        if (!formData.polish_internal) {
+            messageArea.innerHTML = `<div class="alert alert-danger">Internal ID cannot be empty.</div>`;
+            return;
+        }
+
+        try {
+            const response = await fetch('/adminportal/polish-finish/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                messageArea.innerHTML = `<div class="alert alert-success">${result.message || "Polish finish saved successfully!"}</div>`;
+                document.getElementById('polish_finish_name').value = '';
+                document.getElementById('polish_internal').value = '';
+                if (typeof PolishFinishAPI !== "undefined" && PolishFinishAPI.refreshDropdown) {
+                    PolishFinishAPI.refreshDropdown();
+                }
+                // Auto-hide success message after 5 seconds
+                setTimeout(() => {
+                    messageArea.innerHTML = '';
+                }, 5000);
+            } else {
+                // Show serializer errors
+                let errorHtml = "";
+                if (result.errors) {
+                    for (const [field, errors] of Object.entries(result.errors)) {
+                        if (Array.isArray(errors)) {
+                            errors.forEach(err => {
+                                errorHtml += `<div>${err}</div>`;
+                            });
+                        } else {
+                            errorHtml += `<div>${errors}</div>`;
+                        }
+                    }
+                } else {
+                    errorHtml = result.message || "Error saving polish finish.";
+                }
+                messageArea.innerHTML = `<div class="alert alert-danger">${errorHtml}</div>`;
+            }
+        } catch (error) {
+            messageArea.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        }
+    });
+    
+    // Plating Color Form
+    document.getElementById('plating-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = {
+            plating_color: document.getElementById('plating_color').value.trim(),
+            plating_color_internal: document.getElementById('plating_internal').value.trim(),
+            jig_unload_zone_1: document.getElementById('jig_unload_zone_1').checked,
+            jig_unload_zone_2: document.getElementById('jig_unload_zone_2').checked
+        };
+        await PlatingColorAPI.create(formData);
+    });
+    
+    // Tray Type Form
+    document.getElementById('tray-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = {
+            tray_type: document.getElementById('tray_type_name').value.trim(),
+            tray_capacity: parseInt(document.getElementById('tray_capacity_value').value)
+        };
+        await TrayTypeAPI.create(formData);
+    });
+    
+    // Model Images Form
+    document.getElementById('images-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const filesInput = document.getElementById('model_images_upload');
+        if (filesInput.files.length > 0) {
+            await ModelImageAPI.upload(filesInput);
+        } else {
+            showInlineMessage('images-message-area', 'Please select at least one image to upload', false);
+        }
+    });
+    
+    // Model Master Form
+    document.getElementById('model-master-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = {
+            model_no: document.getElementById('model_no').value.trim(),
+            polish_finish: document.getElementById('polish_finish').value || null,
+            ep_bath_type: document.getElementById('ep_bath_type').value.trim(),
+            tray_type: document.getElementById('tray_type').value || null,
+            tray_capacity: parseInt(document.getElementById('tray_capacity').value) || null,
+            version: document.getElementById('version').value.trim(), // <-- Add this line
+            source_name: document.getElementById('source_name').value || null,
+            images: Array.from(document.getElementById('model_images').selectedOptions).map(option => option.value),
+            category: document.getElementById('category').value || null
+        };
+        await ModelMasterAPI.create(formData);
+    });
+
+    // Location Form
+    document.getElementById('location-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = {
+            location_name: document.getElementById('location_name').value.trim()
+        };
+        await LocationAPI.create(formData);
+    });
+
+    // TrayId Form
+    document.getElementById('trayid-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const tray_id = document.getElementById('trayid_tray_id').value.trim();
+        const tray_type = document.getElementById('trayid_tray_type').value;
+        const tray_capacity = parseInt(document.getElementById('trayid_tray_capacity').value) || null;
+        const formData = {
+            tray_id: tray_id,
+            tray_type: tray_type,
+            tray_capacity: tray_capacity
+        };
+        await TrayIdAPI.create(formData);
+    });
+
+    // Category Form AJAX submit
+    document.getElementById('category-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const messageArea = document.getElementById('category-message-area');
+        messageArea.innerHTML = ""; // Clear previous messages
+
+        const csrfToken = getCSRFToken();
+        const categoryName = document.getElementById('category_name').value.trim();
+
+        // Simple validation
+        if (!categoryName) {
+            messageArea.innerHTML = `<div class="alert alert-danger">Category name cannot be empty.</div>`;
+            return;
+        }
+
+        try {
+            const response = await fetch('/adminportal/category/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ category_name: categoryName })
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                messageArea.innerHTML = `<div class="alert alert-success">${result.message || "Category saved successfully!"}</div>`;
+                document.getElementById('category_name').value = '';
+                // Optionally refresh the dropdown
+                if (typeof CategoryAPI !== "undefined" && CategoryAPI.refreshDropdown) {
+                    CategoryAPI.refreshDropdown();
+                }
+                // Auto-hide success message after 5 seconds
+                setTimeout(() => {
+                    messageArea.innerHTML = '';
+                }, 5000);
+            } else {
+                // Show serializer errors
+                let errorHtml = "";
+                if (result.errors) {
+                    for (const [field, errors] of Object.entries(result.errors)) {
+                        if (Array.isArray(errors)) {
+                            errors.forEach(err => {
+                                errorHtml += `<div>${err}</div>`;
+                            });
+                        } else {
+                            errorHtml += `<div>${errors}</div>`;
+                        }
+                    }
+                } else {
+                    errorHtml = result.message || "Error saving category.";
+                }
+                messageArea.innerHTML = `<div class="alert alert-danger">${errorHtml}</div>`;
+            }
+        } catch (error) {
+            messageArea.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        }
+    });
+}
+</script>
+
+{% endblock %}

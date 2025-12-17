@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Test Rejection Form Validation</title>
+  </head>
+  <body>
+    <div id="test-results"></div>
+
+    <!-- Simulate rejection form elements -->
+    <div id="rejection-reasons-section">
+      <table class="table">
+        <tbody id="rejection-table-body">
+          <tr data-reason-id="R01">
+            <td>1</td>
+            <td>R01</td>
+            <td>VERSION MIXUP</td>
+            <td>
+              <input
+                type="number"
+                class="rejection-qty-input"
+                value="14"
+                data-reason-id="R01"
+              />
+            </td>
+            <td>
+              <input
+                type="text"
+                class="rejection-tray-id-input"
+                value="NB-A00001"
+              />
+              <span class="rejection-tray-error"></span>
+            </td>
+          </tr>
+          <tr data-reason-id="R02">
+            <td>2</td>
+            <td>R02</td>
+            <td>MODEL MIXUP</td>
+            <td>
+              <input
+                type="number"
+                class="rejection-qty-input"
+                value="1"
+                data-reason-id="R02"
+              />
+            </td>
+            <td>
+              <input
+                type="text"
+                class="rejection-tray-id-input"
+                value="NB-A00001"
+              />
+              <span class="rejection-tray-error"></span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <button id="proceedButton">Proceed</button>
+    <button id="draftButton">Draft</button>
+    <button id="cancelButton">Cancel</button>
+
+    <script>
+      // Include the validation function
+      function validateDuplicateTrayIds() {
+        console.log(
+          "🔍 [validateDuplicateTrayIds] Starting duplicate validation"
+        );
+
+        const duplicates = new Map();
+        const allTrayInputs = document.querySelectorAll(
+          ".rejection-tray-id-input"
+        );
+
+        // ✅ FIX: Only clear duplicate errors, preserve backend validation results
+        allTrayInputs.forEach((input) => {
+          // Don't clear if input has been successfully validated by backend
+          if (input._isBackendValidated === true) {
+            console.log(
+              `🔄 [validateDuplicateTrayIds] Preserving backend validation for: ${input.value}`
+            );
+            return;
+          }
+
+          input.classList.remove("duplicate-error", "duplicate-warning");
+          const errorSpan = input.parentElement?.parentElement?.querySelector(
+            ".rejection-tray-error"
+          );
+          if (
+            errorSpan &&
+            (errorSpan.textContent.includes("Duplicate") ||
+              errorSpan.textContent.includes("Valid for re-use") ||
+              errorSpan.textContent.includes("exceeds capacity"))
+          ) {
+            errorSpan.style.display = "none";
+            errorSpan.textContent = "";
+          }
+        });
+
+        // Collect all non-empty tray IDs with their input elements and quantities
+        allTrayInputs.forEach((input, index) => {
+          const trayId = input.value.trim().toUpperCase();
+
+          if (trayId) {
+            // Get the quantity for this rejection reason
+            const rejectionRow = input.closest("tr");
+            const qtyInput = rejectionRow?.querySelector(
+              ".rejection-qty-input"
+            );
+            const quantity = qtyInput ? parseInt(qtyInput.value) || 0 : 0;
+
+            if (!duplicates.has(trayId)) {
+              duplicates.set(trayId, []);
+            }
+            duplicates.get(trayId).push({ input, index, quantity });
+          }
+        });
+
+        let hasDuplicates = false;
+        // ✅ ENHANCED: Get dynamic tray capacity from current row
+        let trayCapacity = 16; // Default to Normal capacity
+        const currentRow =
+          document.querySelector("tr.highlighted-tray-scan") ||
+          document.querySelector("[data-stock-lot-id]");
+        if (currentRow) {
+          const trayCapacityText = currentRow.cells[7]?.textContent || "";
+          if (trayCapacityText.includes("-")) {
+            const trayTypeName =
+              trayCapacityText.split("-")[0]?.toLowerCase() || "";
+            const defaultCapacity = trayTypeName.includes("jumbo") ? 12 : 16;
+            trayCapacity =
+              parseInt(trayCapacityText.split("-")[1]) || defaultCapacity;
+          }
+        }
+
+        // For testing, simulate NB-A00001 has capacity 16
+        if (
+          document.querySelector('.rejection-tray-id-input[value="NB-A00001"]')
+        ) {
+          trayCapacity = 16;
+        }
+
+        // Check for duplicates and validate capacity
+        duplicates.forEach((inputsArray, trayId) => {
+          if (inputsArray.length > 1) {
+            console.log(
+              `❌ [validateDuplicateTrayIds] Duplicate found: ${trayId} used ${inputsArray.length} times`
+            );
+            hasDuplicates = true;
+
+            // Calculate total quantity across all rejections for this tray
+            const totalQuantity = inputsArray.reduce(
+              (sum, item) => sum + item.quantity,
+              0
+            );
+            console.log(
+              `🔧 [validateDuplicateTrayIds] Total quantity for ${trayId}: ${totalQuantity}/${trayCapacity}`
+            );
+
+            // ✅ FIXED: Implement exact match validation as per backend requirements
+            const isExactMatch = totalQuantity === trayCapacity;
+            const isPartialUsage =
+              totalQuantity > 0 && totalQuantity < trayCapacity;
+            const exceedsCapacity = totalQuantity > trayCapacity;
+
+            console.log(
+              `🔧 [validateDuplicateTrayIds] ${trayId}: total=${totalQuantity}, capacity=${trayCapacity}, exact=${isExactMatch}, partial=${isPartialUsage}, exceeds=${exceedsCapacity}`
+            );
+
+            // Mark duplicate inputs with appropriate style
+            inputsArray.forEach(({ input, index, quantity }) => {
+              // ✅ FIX: Preserve backend validation results
+              if (input._isBackendValidated === true) {
+                console.log(
+                  `✅ [validateDuplicateTrayIds] Preserving backend validation for ${trayId}`
+                );
+                return;
+              }
+
+              const errorSpan =
+                input.parentElement?.parentElement?.querySelector(
+                  ".rejection-tray-error"
+                );
+
+              if (exceedsCapacity) {
+                // Error: Capacity exceeded
+                input.classList.add("duplicate-error");
+                input.style.borderColor = "#dc3545";
+                input.style.backgroundColor = "#f8d7da";
+                input._isValid = false;
+
+                if (errorSpan) {
+                  errorSpan.innerHTML = `❌ Capacity exceeded: ${totalQuantity} pieces > ${trayCapacity} capacity`;
+                  errorSpan.style.display = "block";
+                  errorSpan.style.color = "#721c24";
+                  errorSpan.style.backgroundColor = "#f8d7da";
+                  errorSpan.style.border = "1px solid #f5c6cb";
+                  errorSpan.style.padding = "6px 10px";
+                  errorSpan.style.borderRadius = "4px";
+                  errorSpan.style.fontSize = "12px";
+                  errorSpan.style.fontWeight = "500";
+                  errorSpan.style.marginTop = "4px";
+                }
+              } else if (isPartialUsage) {
+                // Error: Partial usage not allowed (exact match required)
+                input.classList.add("duplicate-error");
+                input.style.borderColor = "#dc3545";
+                input.style.backgroundColor = "#f8d7da";
+                input._isValid = false;
+
+                if (errorSpan) {
+                  errorSpan.innerHTML = `❌ Exact quantity match required: ${totalQuantity}/${trayCapacity} (partial usage blocked)`;
+                  errorSpan.style.display = "block";
+                  errorSpan.style.color = "#721c24";
+                  errorSpan.style.backgroundColor = "#f8d7da";
+                  errorSpan.style.border = "1px solid #f5c6cb";
+                  errorSpan.style.padding = "6px 10px";
+                  errorSpan.style.borderRadius = "4px";
+                  errorSpan.style.fontSize = "12px";
+                  errorSpan.style.fontWeight = "500";
+                  errorSpan.style.marginTop = "4px";
+                }
+              } else if (isExactMatch) {
+                // Success: Perfect capacity match
+                input.classList.add("duplicate-warning");
+                input.style.borderColor = "#28a745";
+                input.style.backgroundColor = "#d4edda";
+                input._isValid = true;
+
+                if (errorSpan) {
+                  errorSpan.innerHTML = `✅ Perfect capacity match: ${totalQuantity}/${trayCapacity}`;
+                  errorSpan.style.display = "block";
+                  errorSpan.style.color = "#155724";
+                  errorSpan.style.backgroundColor = "#d4edda";
+                  errorSpan.style.border = "1px solid #c3e6cb";
+                  errorSpan.style.padding = "6px 10px";
+                  errorSpan.style.borderRadius = "4px";
+                  errorSpan.style.fontSize = "12px";
+                  errorSpan.style.fontWeight = "500";
+                  errorSpan.style.marginTop = "4px";
+                }
+              }
+
+              console.log(
+                `🔧 [validateDuplicateTrayIds] ${trayId} validation result: valid=${input._isValid}`
+              );
+            });
+          }
+        });
+
+        if (!hasDuplicates) {
+          console.log("✅ [validateDuplicateTrayIds] No duplicates found");
+        }
+
+        // ✅ FIXED: Return true only if all duplicates have exact matches (no partial usage or capacity exceeded)
+        const hasValidationErrors = Array.from(duplicates.values()).some(
+          (inputsArray) => {
+            if (inputsArray.length > 1) {
+              const totalQuantity = inputsArray.reduce(
+                (sum, item) => sum + item.quantity,
+                0
+              );
+              // Block both partial usage AND capacity exceeded
+              return totalQuantity !== trayCapacity;
+            }
+            return false;
+          }
+        );
+
+        console.log(
+          `🔧 [validateDuplicateTrayIds] Validation result: hasErrors=${hasValidationErrors}`
+        );
+        return !hasValidationErrors;
+      }
+
+      // Test scenarios
+      function runTests() {
+        const results = document.getElementById("test-results");
+        results.innerHTML = "<h2>Testing Rejection Form Validation</h2>";
+
+        // Test 1: Exact match scenario (14+2=16 for 16-capacity tray)
+        console.log("=== Test 1: Exact Match Scenario ===");
+        // Set up: 14 pieces R01 + 2 pieces R02 = 16 total (exact match)
+        document.querySelector(
+          '[data-reason-id="R01"] .rejection-qty-input'
+        ).value = 14;
+        document.querySelector(
+          '[data-reason-id="R02"] .rejection-qty-input'
+        ).value = 2;
+
+        const result1 = validateDuplicateTrayIds();
+        const proceedButton = document.getElementById("proceedButton");
+
+        results.innerHTML += `<p><strong>Test 1 - Exact Match (14+2=16):</strong> ${
+          result1 ? "✅ PASS" : "❌ FAIL"
+        }</p>`;
+        results.innerHTML += `<p>Proceed button should be enabled: ${
+          !proceedButton.disabled ? "✅ ENABLED" : "❌ DISABLED"
+        }</p>`;
+
+        // Test 2: Partial usage scenario (14+1=15 for 16-capacity tray)
+        console.log("=== Test 2: Partial Usage Scenario ===");
+        document.querySelector(
+          '[data-reason-id="R01"] .rejection-qty-input'
+        ).value = 14;
+        document.querySelector(
+          '[data-reason-id="R02"] .rejection-qty-input'
+        ).value = 1;
+
+        const result2 = validateDuplicateTrayIds();
+        results.innerHTML += `<p><strong>Test 2 - Partial Usage (14+1=15):</strong> ${
+          !result2 ? "✅ PASS (correctly blocked)" : "❌ FAIL"
+        }</p>`;
+
+        // Test 3: Capacity exceeded scenario (14+5=19 for 16-capacity tray)
+        console.log("=== Test 3: Capacity Exceeded Scenario ===");
+        document.querySelector(
+          '[data-reason-id="R01"] .rejection-qty-input'
+        ).value = 14;
+        document.querySelector(
+          '[data-reason-id="R02"] .rejection-qty-input'
+        ).value = 5;
+
+        const result3 = validateDuplicateTrayIds();
+        results.innerHTML += `<p><strong>Test 3 - Capacity Exceeded (14+5=19):</strong> ${
+          !result3 ? "✅ PASS (correctly blocked)" : "❌ FAIL"
+        }</p>`;
+
+        // Test 4: Check visual feedback
+        const trayInputs = document.querySelectorAll(
+          ".rejection-tray-id-input"
+        );
+        const errorSpans = document.querySelectorAll(".rejection-tray-error");
+
+        let visualTestPass = true;
+        trayInputs.forEach((input, i) => {
+          const isValid = input._isValid;
+          const borderColor = input.style.borderColor;
+          const bgColor = input.style.backgroundColor;
+          const errorSpan = errorSpans[i];
+
+          if (
+            isValid &&
+            (borderColor !== "rgb(40, 167, 69)" ||
+              bgColor !== "rgb(212, 237, 218)")
+          ) {
+            visualTestPass = false;
+          }
+          if (
+            !isValid &&
+            (borderColor !== "rgb(220, 53, 69)" ||
+              bgColor !== "rgb(248, 215, 218)")
+          ) {
+            visualTestPass = false;
+          }
+        });
+
+        results.innerHTML += `<p><strong>Test 4 - Visual Feedback:</strong> ${
+          visualTestPass ? "✅ PASS" : "❌ FAIL"
+        }</p>`;
+      }
+
+      // Mock updateFormValidationState function
+      function updateFormValidationState() {
+        const hasValidationErrors = !validateDuplicateTrayIds();
+        const proceedButton = document.getElementById("proceedButton");
+
+        if (proceedButton) {
+          if (hasValidationErrors) {
+            proceedButton.disabled = true;
+            proceedButton.style.opacity = "0.5";
+            proceedButton.style.cursor = "not-allowed";
+            proceedButton.title =
+              "Please fix all invalid tray IDs before proceeding";
+          } else {
+            proceedButton.disabled = false;
+            proceedButton.style.opacity = "1";
+            proceedButton.style.cursor = "pointer";
+            proceedButton.title = "";
+          }
+          console.log(
+            `🔧 [updateFormValidationState] Proceed button state: disabled=${proceedButton.disabled}`
+          );
+        }
+      }
+
+      // Run tests when page loads
+      window.onload = function () {
+        runTests();
+      };
+    </script>
+  </body>
+</html>
