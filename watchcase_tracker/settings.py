@@ -74,17 +74,17 @@ INSTALLED_APPS = [
 # Add custom backend (keep default ModelBackend as fallback)
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
-    'social_core.backends.google.GoogleOAuth2', 
-    'social_core.backends.azuread.AzureADOAuth2',
+    #'social_core.backends.google.GoogleOAuth2', 
+    #'social_core.backends.azuread.AzureADOAuth2',
     # optionally add social auth backends if using social_django / allauth
     # 'social_core.backends.open_id_connect.OpenIdConnectAuth',
 ]
 
 
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '745663735279-e3sar34uirern0ancl2s5sveecbiqa3o.apps.googleusercontent.com'
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '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'
+# SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '745663735279-e3sar34uirern0ancl2s5sveecbiqa3o.apps.googleusercontent.com'
+# SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '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'
 # optional: require verified email before auto-linking
-SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ['email', 'profile']
+# SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ['email', 'profile']
 
 # ...existing code...
 # Ensure social login redirects to the dashboard
