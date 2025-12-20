@@ -26,6 +26,7 @@ from InputScreening.models import *
 
 
 
+
 class IS_PickTable(APIView):
     renderer_classes = [TemplateHTMLRenderer]
     template_name = 'Input_Screening/IS_PickTable.html'
@@ -1227,354 +1228,7 @@ class TrayRejectionAPIView(APIView):
 # SIMPLIFIED TRAY VALIDATION - SINGLE VIEW & Allowed to Reuse the Tray during Rejection
 # ==========================================
 
-
-
-@require_GET
-def reject_check_tray_id_simple(request):
-    """
-    Enhanced tray validation:
-    - Allow any one existing tray to be reused for any one rejection reason,
-      but block reuse for other rejection reasons in the same session.
-    - If a tray is freed by previous rejections, allow its reuse for one rejection reason.
-    - Also validate tray type compatibility and all existing logic.
-    - Reuse is allowed ONLY if the tray has qty == 0 after instant deduction (i.e., freed tray).
-    - NEW: If total rejection qty < number of trays, allow re-use.
-    - DRAFT: If is_draft, ignore DB rejections and only use session allocations.
-    """
-    tray_id = request.GET.get('tray_id', '')
-    current_lot_id = request.GET.get('lot_id', '')
-    rejection_qty = int(request.GET.get('rejection_qty', 0))
-    current_session_allocations_str = request.GET.get('current_session_allocations', '[]')
-    rejection_reason_id = request.GET.get('rejection_reason_id', '')  # Pass this from frontend
-    is_draft = request.GET.get('is_draft', 'false').lower() == 'true'
-
-    print(f"[REJECT_VALIDATION] Checking tray_id: {tray_id}, lot_id: {current_lot_id}, qty: {rejection_qty}, reason: {rejection_reason_id}, is_draft: {is_draft}")
-    try:
-        current_session_allocations = json.loads(current_session_allocations_str)
-    except Exception:
-        current_session_allocations = []
-
-    print(f"[REJECT_VALIDATION] Current session allocations: {current_session_allocations}")
-
-    # ✅ UPDATED: Include delinked trays as available (delink_tray=True means reusable)
-    tray_objs = IPTrayId.objects.filter(lot_id=current_lot_id, rejected_tray=False)
-    tray_id_obj = TrayId.objects.filter(tray_id=tray_id).first()
-
-    if not tray_id_obj:
-        return JsonResponse({
-            'exists': False,
-            'valid_for_rejection': False,
-            'error': 'Tray ID not found',
-            'status_message': 'Not Found'
-        })
-
-    is_new_tray = getattr(tray_id_obj, 'new_tray', False)
-    is_delinked = getattr(tray_id_obj, 'delink_tray', False)
-    
-    # ✅ NEW: Check if this is a delinked tray - treat as reusable
-    if is_delinked:
-        print(f"[REJECT_VALIDATION] ✅ DELINKED tray detected: {tray_id} - treating as reusable")
-        
-        # Validate tray type compatibility
-        tray_type_validation = validate_tray_type_compatibility(tray_id_obj, current_lot_id)
-        if not tray_type_validation['is_compatible']:
-            return JsonResponse({
-                'exists': False,
-                'valid_for_rejection': False,
-                'error': tray_type_validation['error'],
-                'status_message': tray_type_validation['status_message'],
-                'tray_type_mismatch': True,
-                'scanned_tray_type': tray_type_validation['scanned_tray_type'],
-                'expected_tray_type': tray_type_validation['expected_tray_type']
-            })
-        
-        # Delinked trays are always available for rejection reuse
-        return JsonResponse({
-            'exists': True,
-            'valid_for_rejection': True,
-            'status_message': 'Delinked Tray Available for Reuse',
-            'validation_type': 'delinked_tray_reusable',
-            'tray_type_compatible': True,
-            'is_delinked': True
-        })
-
-    # For new trays, check if lot_id is empty
-    if is_new_tray:
-        if tray_id_obj.lot_id:
-            if str(tray_id_obj.lot_id).strip() == str(current_lot_id).strip():
-                return JsonResponse({
-                    'exists': False,
-                    'valid_for_rejection': False,
-                    'error': 'Tray already assigned to this lot',
-                    'status_message': 'Already Assigned'
-                })
-            else:
-                return JsonResponse({
-                    'exists': False,
-                    'valid_for_rejection': False,
-                    'error': 'Tray assigned to different lot',
-                    'status_message': 'Assigned to Different Lot'
-                })
-        else:
-            tray_type_validation = validate_tray_type_compatibility(tray_id_obj, current_lot_id)
-            if not tray_type_validation['is_compatible']:
-                return JsonResponse({
-                    'exists': False,
-                    'valid_for_rejection': False,
-                    'error': tray_type_validation['error'],
-                    'status_message': tray_type_validation['status_message'],
-                    'tray_type_mismatch': True,
-                    'scanned_tray_type': tray_type_validation['scanned_tray_type'],
-                    'expected_tray_type': tray_type_validation['expected_tray_type']
-                })
-            print(f"[REJECT_VALIDATION] ✅ NEW tray validated successfully")
-            return JsonResponse({
-                'exists': True,
-                'valid_for_rejection': True,
-                'status_message': 'New Tray Available',
-                'validation_type': 'new_tray',
-                'tray_type_compatible': True
-            })
-
-    # ✅ UPDATED: Also check for delinked trays in IPTrayId (they should be reusable)
-    tray_obj = IPTrayId.objects.filter(tray_id=tray_id, lot_id=current_lot_id).first()
-    
-    # ✅ NEW: If not found by lot_id, check if it's a delinked tray that can be reused
-    if not tray_obj:
-        tray_obj_delinked = IPTrayId.objects.filter(tray_id=tray_id, delink_tray=True).first()
-        if tray_obj_delinked:
-            print(f"[REJECT_VALIDATION] ✅ Found delinked tray in IPTrayId: {tray_id}")
-            # Validate tray type
-            tray_type_validation = validate_tray_type_compatibility(tray_obj_delinked, current_lot_id)
-            if not tray_type_validation['is_compatible']:
-                return JsonResponse({
-                    'exists': False,
-                    'valid_for_rejection': False,
-                    'error': tray_type_validation['error'],
-                    'status_message': tray_type_validation['status_message'],
-                    'tray_type_mismatch': True,
-                    'scanned_tray_type': tray_type_validation['scanned_tray_type'],
-                    'expected_tray_type': tray_type_validation['expected_tray_type']
-                })
-            
-            return JsonResponse({
-                'exists': True,
-                'valid_for_rejection': True,
-                'status_message': 'Delinked Tray Available for Reuse',
-                'validation_type': 'delinked_tray_from_iptrayid',
-                'tray_type_compatible': True,
-                'is_delinked': True
-            })
-        
-        # Not found at all
-        return JsonResponse({
-            'exists': False,
-            'valid_for_rejection': False,
-            'error': 'Tray ID not found in IP system',
-            'status_message': 'Different Lot'
-        })
-
-    tray_type_validation = validate_tray_type_compatibility(tray_obj, current_lot_id)
-    if not tray_type_validation['is_compatible']:
-        return JsonResponse({
-            'exists': False,
-            'valid_for_rejection': False,
-            'error': tray_type_validation['error'],
-            'status_message': tray_type_validation['status_message'],
-            'tray_type_mismatch': True,
-            'scanned_tray_type': tray_type_validation['scanned_tray_type'],
-            'expected_tray_type': tray_type_validation['expected_tray_type']
-        })
-
-    if not getattr(tray_obj, 'IP_tray_verified', False):
-        return JsonResponse({
-            'exists': False,
-            'valid_for_rejection': False,
-            'error': 'Tray not verified',
-            'status_message': 'Not Verified'
-        })
-
-    if tray_obj.rejected_tray:
-        return JsonResponse({
-            'exists': False,
-            'valid_for_rejection': False,
-            'error': 'Already rejected',
-            'status_message': 'Already Rejected'
-        })
-
-    if tray_obj.lot_id:
-        if str(tray_obj.lot_id).strip() != str(current_lot_id).strip():
-            return JsonResponse({
-                'exists': False,
-                'valid_for_rejection': False,
-                'error': 'Different lot',
-                'status_message': 'Different Lot'
-            })
-    else:
-        return JsonResponse({
-            'exists': False,
-            'valid_for_rejection': False,
-            'error': 'Invalid tray state',
-            'status_message': 'Invalid State'
-        })
-
-    tray_ids_in_lot = set(tray.tray_id for tray in tray_objs)
-    if tray_id not in tray_ids_in_lot:
-        return JsonResponse({
-            'exists': False,
-            'valid_for_rejection': False,
-            'error': 'Tray not found in lot',
-            'status_message': 'Tray not found'
-        })
-
-    print(f"[REJECT_VALIDATION] ✅ Basic validations passed for existing tray: {tray_id}")
-
-    # --- DRAFT MODE LOGIC - Updated to check against all available quantities ---
-    if is_draft:
-        # ✅ CRITICAL FIX: Check against ALL available tray quantities, not just the specific scanned tray
-        all_available_quantities = get_available_tray_quantities_for_lot(current_lot_id)
-        print(f"[REJECT_VALIDATION_DRAFT] Available tray quantities in lot {current_lot_id}: {all_available_quantities}")
-        
-        # Calculate how much of this specific tray ID is already allocated
-        current_tray_qty_used = sum(
-            int(alloc.get('rejection_qty', 0))
-            for alloc in current_session_allocations
-            if alloc.get('tray_id') == tray_id and alloc.get('rejection_reason_id') != rejection_reason_id
-        )
-        total_tray_qty_planned = current_tray_qty_used + rejection_qty
-        
-        print(f"[REJECT_VALIDATION_DRAFT] Currently used for tray {tray_id} in other reasons: {current_tray_qty_used}")
-        print(f"[REJECT_VALIDATION_DRAFT] This rejection qty: {rejection_qty}")
-        print(f"[REJECT_VALIDATION_DRAFT] Total planned for this tray: {total_tray_qty_planned}")
-        
-        # ✅ NEW: Allow if total planned quantity matches ANY available tray quantity
-        if total_tray_qty_planned in all_available_quantities:
-            print(f"[REJECT_VALIDATION_DRAFT] ✅ PERFECT MATCH: {total_tray_qty_planned} matches available quantity")
-            return JsonResponse({
-                'exists': True,
-                'valid_for_rejection': True,
-                'status_message': f'Tray reuse allowed - perfect quantity match: {total_tray_qty_planned} pieces (draft)',
-                'validation_type': 'perfect_quantity_match_draft',
-                'tray_type_compatible': True,
-                'total_planned_qty': total_tray_qty_planned,
-                'available_quantities': all_available_quantities
-            })
-        
-        # ✅ Check if exceeds maximum available quantity
-        max_available_qty = max(all_available_quantities) if all_available_quantities else 0
-        if total_tray_qty_planned > max_available_qty:
-            return JsonResponse({
-                'exists': True,
-                'valid_for_rejection': False,
-                'error': f'Tray quantity exceeded: planned {total_tray_qty_planned} > maximum available {max_available_qty}',
-                'status_message': 'Tray quantity exceeded',
-                'available_quantities': all_available_quantities
-            })
-        
-        # ✅ If not exact match but within limits, provide helpful error
-        return JsonResponse({
-            'exists': True,
-            'valid_for_rejection': False,
-            'error': f'Exact quantity match required: planned {total_tray_qty_planned} does not match available quantities {all_available_quantities}',
-            'status_message': 'Exact quantity match required',
-            'available_quantities': all_available_quantities
-        })
-
-    # --- CRITICAL FIX: Check session allocations first before any complex logic ---
-    used_trays_for_other_reasons = set()
-    for alloc in current_session_allocations:
-        if alloc.get('tray_id') and alloc.get('rejection_reason_id') != rejection_reason_id:
-            used_trays_for_other_reasons.add(alloc['tray_id'])
-
-    print(f"[REJECT_VALIDATION] Trays used for other reasons in session: {used_trays_for_other_reasons}")
-
-    # ✅ NEW: Enhanced reuse validation for same tray across multiple reasons
-    if tray_id in used_trays_for_other_reasons:
-        # Use tray_quantity (available qty) instead of tray_capacity (max capacity)
-        tray_available_qty = getattr(tray_obj, 'tray_quantity', 0)
-        current_tray_qty_used = sum(
-            int(alloc.get('rejection_qty', 0))
-            for alloc in current_session_allocations
-            if alloc.get('tray_id') == tray_id
-        )
-        total_tray_qty_planned = current_tray_qty_used + rejection_qty
-        
-        print(f"[REJECT_VALIDATION] Tray {tray_id} available qty: {tray_available_qty}")
-        print(f"[REJECT_VALIDATION] Currently used: {current_tray_qty_used}")
-        print(f"[REJECT_VALIDATION] This rejection: {rejection_qty}")
-        print(f"[REJECT_VALIDATION] Total planned: {total_tray_qty_planned}")
-        
-        if total_tray_qty_planned > tray_available_qty:
-            return JsonResponse({
-                'exists': True,
-                'valid_for_rejection': False,
-                'error': f'Tray quantity exceeded: planned {total_tray_qty_planned} > available {tray_available_qty}',
-                'status_message': 'Tray quantity exceeded'
-            })
-        elif total_tray_qty_planned == tray_available_qty:
-            # ✅ Perfect match - allow reuse even if individual qty is small
-            print(f"[REJECT_VALIDATION] ✅ PERFECT MATCH: {total_tray_qty_planned} = {tray_available_qty}")
-            return JsonResponse({
-                'exists': True,
-                'valid_for_rejection': True,
-                'status_message': 'Tray reuse allowed - perfect capacity match',
-                'validation_type': 'perfect_capacity_match',
-                'tray_type_compatible': True,
-                'total_planned_qty': total_tray_qty_planned,
-                'tray_available_qty': tray_available_qty
-            })
-        # If total < capacity, continue with normal validation below
-
-    # Check if tray already used in DB for this lot for different rejection reason
-    already_used_in_db = IP_Rejected_TrayScan.objects.filter(
-        lot_id=current_lot_id,
-        rejected_tray_id=tray_id
-    ).exclude(rejection_reason__rejection_reason_id=rejection_reason_id).exists()
-
-    if already_used_in_db:
-        print(f"[REJECT_VALIDATION] ❌ Tray {tray_id} already used for another rejection reason in DB")
-        return JsonResponse({
-            'exists': True,
-            'valid_for_rejection': False,
-            'error': 'Tray already used for another rejection reason',
-            'status_message': 'Tray already used for another rejection'
-        })
-
-    print(f"[REJECT_VALIDATION] ✅ Tray {tray_id} is available for reuse check")
-
-    available_tray_quantities, _ = get_available_quantities_with_session_allocations(
-        current_lot_id, current_session_allocations
-    )
-
-    # ✅ CRITICAL FIX: Check against ALL available tray quantities in the lot, not just the specific tray
-    # Get all available tray quantities including different tray sizes
-    all_available_quantities = get_available_tray_quantities_for_lot(current_lot_id)
-    print(f"[REJECT_VALIDATION] Available tray quantities in lot {current_lot_id}: {all_available_quantities}")
-    
-    # ✅ NEW: Allow reuse if rejection quantity matches ANY available tray quantity
-    if rejection_qty in all_available_quantities:
-        print(f"[REJECT_VALIDATION] ✅ EXACT MATCH: {rejection_qty} matches available tray quantity")
-        return JsonResponse({
-            'exists': True,
-            'valid_for_rejection': True,
-            'status_message': f'Tray can be reused (exact match: {rejection_qty} pieces)',
-            'validation_type': 'available_quantity_match',
-            'tray_type_compatible': True,
-            'matched_quantity': rejection_qty,
-            'available_quantities': all_available_quantities
-        })
-    else:
-        # Don't allow reuse if quantity doesn't match any available tray
-        print(f"[REJECT_VALIDATION] ❌ NO MATCH: {rejection_qty} not in available quantities {all_available_quantities}")
-        return JsonResponse({
-            'exists': True,
-            'valid_for_rejection': False,
-            'error': f'Rejection quantity {rejection_qty} does not match any available tray quantity: {all_available_quantities}',
-            'status_message': 'Exact quantity match required for reuse',
-            'available_quantities': all_available_quantities
-        })
-
-
+ 
 
 # ✅ NEW: Helper function to validate tray type compatibility from TrayId table
 def validate_tray_type_compatibility(tray_id_obj, lot_id):
@@ -1942,71 +1596,67 @@ def get_available_tray_quantities_for_lot(lot_id):
     except Exception as e:
         print(f"[Available Quantities] Error: {e}")
         return []
-
 def get_original_tray_distribution(lot_id):
     """
-    Get original tray quantity distribution for the lot
-    Returns list like [6, 12, 12] representing individual tray capacities
+    Get original tray quantity distribution for the lot.
+    Returns list like [6, 12, 12] representing individual tray capacities.
+    FIX: Always use actual tray quantities from IPTrayId for the lot, including all trays (even if qty=0), 
+    and only fallback to calculated distribution if there are truly no trays for the lot.
     """
     try:
         print(f"[Original Distribution] Getting distribution for lot_id: {lot_id}")
-        
-        # Get TrayId records for this lot
-        from modelmasterapp.models import TrayId
-        tray_objects = IPTrayId.objects.filter(lot_id=lot_id).exclude(
-            rejected_tray=True
-        ).order_by('date')
-        
+
+        # Get IPTrayId records for this lot (do NOT exclude any by qty, only by rejected_tray)
+        tray_objects = IPTrayId.objects.filter(lot_id=lot_id, delink_tray=False).order_by('date')
         print(f"[Original Distribution] Found {tray_objects.count()} tray objects")
-        
+
+        # Use actual tray quantities from database if any trays exist for this lot
         if tray_objects.exists():
-            # Use actual tray quantities from database
             quantities = []
             for tray in tray_objects:
                 tray_qty = getattr(tray, 'tray_quantity', None)
                 print(f"[Original Distribution] Tray {tray.tray_id}: quantity = {tray_qty}")
-                if tray_qty and tray_qty > 0:
+                # Always include the tray's quantity, even if it's 0
+                if tray_qty is not None:
                     quantities.append(tray_qty)
-            
             if quantities:
-                print(f"[Original Distribution] From TrayId objects: {quantities}")
+                print(f"[Original Distribution] From IPTrayId objects: {quantities}")
                 return quantities
-        
+
         # Fallback: Calculate from total quantity and standard capacity
         from modelmasterapp.models import TotalStockModel
         total_stock = TotalStockModel.objects.filter(lot_id=lot_id).first()
         if not total_stock:
             print(f"[Original Distribution] No TotalStockModel found for lot_id: {lot_id}")
             return []
-        
+
         total_qty = get_total_quantity_for_lot(total_stock)
-        tray_capacity = get_tray_capacity_for_lot(lot_id)  # ✅ Pass lot_id instead of total_stock
-        
+        tray_capacity = get_tray_capacity_for_lot(lot_id)  # Pass lot_id for dynamic lookup
+
         print(f"[Original Distribution] Fallback calculation - total_qty: {total_qty}, tray_capacity: {tray_capacity}")
-        
+
         if not total_qty or not tray_capacity:
             return []
-        
+
         # Calculate distribution: remainder first, then full trays
         remainder = total_qty % tray_capacity
         full_trays = total_qty // tray_capacity
-        
+
         distribution = []
         if remainder > 0:
             distribution.append(remainder)
-        
+
         for _ in range(full_trays):
             distribution.append(tray_capacity)
-        
+
         print(f"[Original Distribution] Calculated: {distribution} (total: {total_qty}, capacity: {tray_capacity})")
         return distribution
-        
+
     except Exception as e:
         print(f"[Original Distribution] Error: {e}")
         import traceback
         traceback.print_exc()
         return []
-
 
 def is_new_tray_by_id(tray_id):
     """
@@ -4491,7 +4141,7 @@ def delink_selected_trays(request):
     
     return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
 
-
+# Function for tray
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_lot_id_for_tray(request):
@@ -4516,3 +4166,129 @@ def get_lot_id_for_tray(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ...existing code...
+
+def reject_check_tray_id_simple(request):
+    """
+    NEW SIMPLIFIED TRAY REUSE VALIDATION:
+    - Allow reuse of any tray as long as total rejection qty will empty any trays (in order) or matches any tray exactly.
+    - This matches the requirement: e.g., for [2,12,12,12,12], rejecting 14 allows reuse (empties 2+12).
+    """
+    tray_id = request.GET.get('tray_id', '')
+    current_lot_id = request.GET.get('lot_id', '')
+    rejection_qty = int(request.GET.get('rejection_qty', 0))
+    current_session_allocations_str = request.GET.get('current_session_allocations', '[]')
+    rejection_reason_id = request.GET.get('rejection_reason_id', '')
+    is_draft = request.GET.get('is_draft', 'false').lower() == 'true'
+
+    try:
+        current_session_allocations = json.loads(current_session_allocations_str)
+    except Exception:
+        current_session_allocations = []
+
+    tray_id_obj = TrayId.objects.filter(tray_id=tray_id).first()
+    if not tray_id_obj:
+        return JsonResponse({
+            'exists': False,
+            'valid_for_rejection': False,
+            'error': 'Tray ID not found',
+            'status_message': 'Not Found'
+        })
+
+    is_new_tray = getattr(tray_id_obj, 'new_tray', False)
+    if is_new_tray:
+        if not tray_id_obj.lot_id:
+            return JsonResponse({
+                'exists': True,
+                'valid_for_rejection': True,
+                'status_message': 'New Tray Available',
+                'validation_type': 'new_tray'
+            })
+
+    tray_obj = IPTrayId.objects.filter(tray_id=tray_id, lot_id=current_lot_id).first()
+    if not tray_obj:
+        return JsonResponse({
+            'exists': False,
+            'valid_for_rejection': False,
+            'error': 'Tray not found in lot',
+            'status_message': 'Not Found'
+        })
+
+    if not getattr(tray_obj, 'IP_tray_verified', False):
+        return JsonResponse({
+            'exists': False,
+            'valid_for_rejection': False,
+            'error': 'Tray not verified',
+            'status_message': 'Not Verified'
+        })
+
+    if tray_obj.rejected_tray:
+        return JsonResponse({
+            'exists': False,
+            'valid_for_rejection': False,
+            'error': 'Already rejected',
+            'status_message': 'Already Rejected'
+        })
+
+    # --- FIX: Use only the current session's rejection qty for this tray, not the sum of all ---
+    # Find the allocation for this tray in the current session
+    session_qty_for_this_tray = 0
+    for alloc in current_session_allocations:
+        # Accept both 'tray_ids' (list) and 'tray_id' (single)
+        tray_ids = alloc.get('tray_ids') or []
+        if isinstance(tray_ids, str):
+            tray_ids = [tray_ids]
+        if tray_id in tray_ids or alloc.get('tray_id') == tray_id:
+            session_qty_for_this_tray += int(alloc.get('qty', 0) or alloc.get('rejection_qty', 0) or 0)
+    # If not found, fallback to the direct rejection_qty
+    if session_qty_for_this_tray == 0:
+        session_qty_for_this_tray = rejection_qty
+
+    # Get the original tray distribution
+    original_distribution = get_original_tray_distribution(current_lot_id)
+    total_available_qty = sum(original_distribution)
+
+    # --- FIXED LOGIC: Allow reuse if the rejection qty for this tray will empty any trays (by subtracting in order) ---
+    trays_emptied = []
+    remaining = session_qty_for_this_tray
+    for i, tray_qty in enumerate(original_distribution):
+        if remaining <= 0:
+            break
+        if remaining >= tray_qty:
+            trays_emptied.append(i)
+            remaining -= tray_qty
+        else:
+            break
+
+    individual_tray_match = session_qty_for_this_tray in original_distribution
+    reuse_allowed = len(trays_emptied) > 0 or individual_tray_match
+
+    if not reuse_allowed:
+        return JsonResponse({
+            'exists': True,
+            'valid_for_rejection': False,
+            'error': f'Reuse restricted: Total qty {session_qty_for_this_tray} does not empty any tray (distribution: {original_distribution})',
+            'status_message': f'Reuse restricted: Total qty {session_qty_for_this_tray} does not empty any tray (distribution: {original_distribution})',
+            'total_rejection_qty': session_qty_for_this_tray,
+            'original_distribution': original_distribution
+        })
+
+    validation_type = 'empties_trays' if len(trays_emptied) > 0 else 'individual_tray_match'
+    status_message = 'Tray reuse allowed'
+    if len(trays_emptied) > 0:
+        status_message += f' (empties {len(trays_emptied)} tray(s) in order)'
+    elif individual_tray_match:
+        status_message += f' (empties one tray: qty {session_qty_for_this_tray})'
+
+    return JsonResponse({
+        'exists': True,
+        'valid_for_rejection': True,
+        'status_message': status_message,
+        'validation_type': validation_type,
+        'trays_emptied': trays_emptied,
+        'individual_tray_match': individual_tray_match,
+        'total_rejection_qty': session_qty_for_this_tray,
+        'original_distribution': original_distribution
+    })

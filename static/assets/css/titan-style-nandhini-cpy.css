@@ -1,7 +1,5 @@
 /* Common styles */
 
-
-
 /* Add width for .tray-scan-modal-content for all media queries used in this file */
 
 /* Default (all screens) */
@@ -72,7 +70,6 @@
   margin-top: 0 !important;
   margin-bottom: 8px !important;
 }
-
 
 /* Start Jig Composition styles K*/
 .model-columns {
@@ -881,7 +878,7 @@ td:first-child * {
   background: #fff !important;
   border: 1px solid #ccc !important;
   border-radius: 6px !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
   opacity: 0 !important;
   visibility: hidden !important;
   transition: opacity 0.3s, visibility 0.3s !important;
@@ -912,8 +909,6 @@ td:first-child * {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
   z-index: 100051;
 }
-
-
 
 .model-image-tooltip {
   position: fixed !important;
@@ -1336,8 +1331,6 @@ h6 {
   padding: 10px;
   font-family: Arial, sans-serif;
 }
-
-
 
 .tray-scan-close {
   position: absolute;
@@ -2781,7 +2774,6 @@ html {
 
 .content-wrapper {
   transition: opacity 0.3s ease;
-  
 }
 
 .tray-scan-modal,
@@ -3048,8 +3040,6 @@ body {
   min-height: 100vh;
 }
 
-
-
 .card-body {
   width: 100%;
   /* overflow-x: auto; */
@@ -3235,6 +3225,3 @@ h4,
     padding-bottom: 0 !important;
   }
 }
- 
-
-

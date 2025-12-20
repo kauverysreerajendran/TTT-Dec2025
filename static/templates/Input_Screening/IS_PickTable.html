@@ -1136,7 +1136,7 @@ input:checked + .hold-slider:before {
                         
                         {% if not data.accepted_Ip_stock and not data.rejected_ip_stock and not data.accepted_tray_scan_status %}
                         <!-- Accept/Reject Buttons Section -->
-                        {% if data.ip_onhold_picking %}
+                        {% if data.few_cases_accepted_Ip_stock and data.ip_onhold_picking %}
                         <button type="button" class="btn btn-social-icon-text btn-twitter"
                            style="background-color: #66bb6a; pointer-events: none; opacity: 0.6; cursor: not-allowed;"
                            disabled>
@@ -1147,7 +1147,7 @@ input:checked + .hold-slider:before {
                            data-stock-lot-id="{{ data.stock_lot_id }}"
                            data-batch-id="{{ data.batch_id }}"
                            data-dp-physical-qty="{{ data.dp_physical_qty|default:0 }}">
-                        <i class="fa fa-times-circle"></i>Reject
+                        <i class="fa fa-times-circle"></i>Set Top Tray
                         </button>
                         {% else %}
                         <button type="button" class="btn btn-social-icon-text btn-twitter"
@@ -5925,225 +5925,57 @@ function generateDynamicTrayIdInputs(row, quantity, trayIdCell) {
 
 // ✅ UPDATED: Duplicate Tray ID Detection with proper capacity validation
 function validateDuplicateTrayIds() {
-  console.log('🔍 [validateDuplicateTrayIds] Starting duplicate validation');
-  
+  // Only check for duplicate tray IDs and mark errors, no tray re-use or perfect quantity logic
   const duplicates = new Map();
   const allTrayInputs = document.querySelectorAll('.rejection-tray-id-input');
-  
-  // ✅ FIX: Only clear duplicate errors, preserve backend validation results
+
+  // Clear previous duplicate errors
   allTrayInputs.forEach(input => {
-    // Don't clear if input has been successfully validated by backend
-    if (input._isBackendValidated === true) {
-      console.log(`🔄 [validateDuplicateTrayIds] Preserving backend validation for: ${input.value}`);
-      return;
-    }
-    
-    input.classList.remove('duplicate-error', 'duplicate-warning');
+    input.classList.remove('duplicate-error');
     const errorSpan = input.parentElement?.parentElement?.querySelector('.rejection-tray-error');
-    if (errorSpan && (errorSpan.textContent.includes('Duplicate') || errorSpan.textContent.includes('Valid for re-use') || errorSpan.textContent.includes('exceeds capacity'))) {
+    if (errorSpan && errorSpan.textContent.includes('Duplicate')) {
       errorSpan.style.display = 'none';
       errorSpan.textContent = '';
     }
   });
-  
-  // Collect all non-empty tray IDs with their input elements and quantities
+
+  // Collect all non-empty tray IDs
   allTrayInputs.forEach((input, index) => {
     const trayId = input.value.trim().toUpperCase();
-    
     if (trayId) {
-      // Get the quantity for this rejection reason
-      const rejectionRow = input.closest('tr');
-      const qtyInput = rejectionRow?.querySelector('.rejection-qty-input');
-      const quantity = qtyInput ? parseInt(qtyInput.value) || 0 : 0;
-      
       if (!duplicates.has(trayId)) {
         duplicates.set(trayId, []);
       }
-      duplicates.get(trayId).push({ input, index, quantity });
+      duplicates.get(trayId).push({ input, index });
     }
   });
-  
-  let hasDuplicates = false;
-  
-  // Check for duplicates and validate capacity
-  duplicates.forEach((inputsArray, trayId) => {
-    if (inputsArray.length > 1) {
-      console.log(`❌ [validateDuplicateTrayIds] Duplicate found: ${trayId} used ${inputsArray.length} times`);
-      hasDuplicates = true;
-      
-      // Calculate total quantity across all rejections for this tray
-      const totalQuantity = inputsArray.reduce((sum, item) => sum + item.quantity, 0);
-      
-      // ✅ CRITICAL FIX: Use actual available tray quantities from backend response
-      let availableTrayQuantities = [16]; // Default fallback
-      let maxAvailableQuantity = 16;
-      let dataSource = 'default';
-      
-      // 🎯 PRIORITY 0: Global available quantities from draft loading (highest priority)
-      if (window.currentLotAvailableQuantities && window.currentLotAvailableQuantities.length > 0) {
-        availableTrayQuantities = window.currentLotAvailableQuantities;
-        maxAvailableQuantity = Math.max(...availableTrayQuantities);
-        dataSource = 'global-draft';
-        console.log(`🎯 [validateDuplicateTrayIds] Using global available quantities: [${availableTrayQuantities.join(', ')}] for ${trayId} (source: ${dataSource})`);
-      } else {
-        // 🎯 PRIORITY 1: Get actual available quantities from any input that has backend response
-        const backendResponseData = inputsArray.find(item => item.input._backendResponseData)?._backendResponseData;
-        if (backendResponseData && backendResponseData.available_quantities) {
-          // Convert Set to Array if needed
-          availableTrayQuantities = Array.isArray(backendResponseData.available_quantities) 
-            ? backendResponseData.available_quantities 
-            : Array.from(backendResponseData.available_quantities);
-          maxAvailableQuantity = Math.max(...availableTrayQuantities);
-          dataSource = 'backend-response';
-          console.log(`🎯 [validateDuplicateTrayIds] Using backend available quantities: [${availableTrayQuantities.join(', ')}] for ${trayId} (source: ${dataSource})`);
-        } else {
-          // 🎯 PRIORITY 2: Fallback to table capacity with extracted quantity
-          const currentRow = document.querySelector('tr.highlighted-tray-scan') || document.querySelector('[data-stock-lot-id]');
-          if (currentRow) {
-            const trayCapacityText = currentRow.cells[7]?.textContent || '';
-            if (trayCapacityText.includes('-')) {
-              const trayTypeName = trayCapacityText.split('-')[0]?.toLowerCase() || '';
-              const defaultCapacity = trayTypeName.includes('jumbo') ? 12 : 16;
-              const capacity = parseInt(trayCapacityText.split('-')[1]) || defaultCapacity;
-              
-              // Check if we have extracted quantity from error messages
-              const extractedQuantity = inputsArray.find(item => item.input._extractedTrayQuantity)?._extractedTrayQuantity;
-              
-              if (extractedQuantity && extractedQuantity !== capacity) {
-                // Include both the partial tray and full capacity options
-                availableTrayQuantities = [extractedQuantity, capacity].filter(q => q > 0);
-                maxAvailableQuantity = capacity;
-                dataSource = 'multi-tray-fallback';
-                console.log(`🎯 [validateDuplicateTrayIds] Multi-tray fallback: [${availableTrayQuantities.join(', ')}] for ${trayId} (source: ${dataSource})`);
-              } else {
-                availableTrayQuantities = [capacity];
-                maxAvailableQuantity = capacity;
-                dataSource = 'table-capacity';
-              }
-            }
-          }
-        }
-      }
-      
-      console.log(`🔧 [validateDuplicateTrayIds] Total quantity for ${trayId}: ${totalQuantity}, Available: [${availableTrayQuantities.join(', ')}] (source: ${dataSource})`);
-      
-      // ✅ FIXED: Check if total quantity matches ANY available tray quantity
-      const isExactMatch = availableTrayQuantities.includes(totalQuantity);
-      const exceedsMaxCapacity = totalQuantity > maxAvailableQuantity;
-      const isPartialUsage = totalQuantity > 0 && !isExactMatch && !exceedsMaxCapacity;
-      
-      console.log(`🔧 [validateDuplicateTrayIds] ${trayId}: total=${totalQuantity}, availableQtys=[${availableTrayQuantities.join(', ')}], exact=${isExactMatch}, partial=${isPartialUsage}, exceeds=${exceedsMaxCapacity}`);
-      
-      // Mark duplicate inputs with appropriate style
-      inputsArray.forEach(({ input, index, quantity }) => {
-        // ✅ FIX: Preserve backend validation results
-        if (input._isBackendValidated === true) {
-          console.log(`✅ [validateDuplicateTrayIds] Preserving backend validation for ${trayId}`);
-          return;
-        }
-        
-        const errorSpan = input.parentElement?.parentElement?.querySelector('.rejection-tray-error');
-        
-        if (exceedsMaxCapacity) {
-          // Error: Capacity exceeded
-          input.classList.add('duplicate-error');
-          input.style.borderColor = '#dc3545';
-          input.style.backgroundColor = '#f8d7da';
-          input._isValid = false;
-          
-          if (errorSpan) {
-            errorSpan.innerHTML = `❌ Capacity exceeded: ${totalQuantity} pieces > ${maxAvailableQuantity} available`;
-            errorSpan.style.display = 'block';
-            errorSpan.style.color = '#721c24';
-            errorSpan.style.backgroundColor = '#f8d7da';
-            errorSpan.style.border = '1px solid #f5c6cb';
-            errorSpan.style.padding = '6px 10px';
-            errorSpan.style.borderRadius = '4px';
-            errorSpan.style.fontSize = '12px';
-            errorSpan.style.fontWeight = '500';
-            errorSpan.style.marginTop = '4px';
-          }
-        } else if (isPartialUsage) {
-          // Error: Partial usage not allowed (exact match required)
-          input.classList.add('duplicate-error');
-          input.style.borderColor = '#dc3545';
-          input.style.backgroundColor = '#f8d7da';
-          input._isValid = false;
-          
-          if (errorSpan) {
-            errorSpan.innerHTML = `❌ Exact quantity match required: ${totalQuantity} pieces (available: ${availableTrayQuantities.join(' or ')})`;
-            errorSpan.style.display = 'block';
-            errorSpan.style.color = '#721c24';
-            errorSpan.style.backgroundColor = '#f8d7da';
-            errorSpan.style.border = '1px solid #f5c6cb';
-            errorSpan.style.padding = '6px 10px';
-            errorSpan.style.borderRadius = '4px';
-            errorSpan.style.fontSize = '12px';
-            errorSpan.style.fontWeight = '500';
-            errorSpan.style.marginTop = '4px';
-          }
-        } else if (isExactMatch) {
-          // Success: Perfect capacity match
-          input.classList.add('duplicate-warning');
-          input.style.borderColor = '#28a745';
-          input.style.backgroundColor = '#d4edda';
-          input._isValid = true;
-          
-          if (errorSpan) {
-            errorSpan.innerHTML = `✅ Perfect quantity match: ${totalQuantity} pieces (using available tray)`;
-            errorSpan.style.display = 'block';
-            errorSpan.style.color = '#155724';
-            errorSpan.style.backgroundColor = '#d4edda';
-            errorSpan.style.border = '1px solid #c3e6cb';
-            errorSpan.style.padding = '6px 10px';
-            errorSpan.style.borderRadius = '4px';
-            errorSpan.style.fontSize = '12px';
-            errorSpan.style.fontWeight = '500';
-            errorSpan.style.marginTop = '4px';
-          }
-        }
-        
-        console.log(`🔧 [validateDuplicateTrayIds] ${trayId} validation result: valid=${input._isValid}`);
-      });
-    }
-  });
-  
-  if (!hasDuplicates) {
-    console.log('✅ [validateDuplicateTrayIds] No duplicates found');
-  }
-  
-  // ✅ FIXED: Return true only if all duplicates have exact matches
-  const hasValidationErrors = Array.from(duplicates.values()).some(inputsArray => {
-    if (inputsArray.length > 1) {
-      const totalQuantity = inputsArray.reduce((sum, item) => sum + item.quantity, 0);
-      
-      // Get available quantities for this tray
-      let availableTrayQuantities = [16]; // Default
-      const currentRow = document.querySelector('tr.highlighted-tray-scan') || document.querySelector('[data-stock-lot-id]');
-      if (currentRow) {
-        const trayCapacityText = currentRow.cells[7]?.textContent || '';
-        if (trayCapacityText.includes('-')) {
-          const trayTypeName = trayCapacityText.split('-')[0]?.toLowerCase() || '';
-          const defaultCapacity = trayTypeName.includes('jumbo') ? 12 : 16;
-          const capacity = parseInt(trayCapacityText.split('-')[1]) || defaultCapacity;
-          availableTrayQuantities = [capacity];
-          
-          const backendTrayQuantity = inputsArray.find(item => item.input._backendTrayQuantity)?._backendTrayQuantity ||
-                                      inputsArray.find(item => item.input._extractedTrayQuantity)?._extractedTrayQuantity;
-          if (backendTrayQuantity && backendTrayQuantity < capacity) {
-            availableTrayQuantities = [backendTrayQuantity, capacity];
-          }
-        }
-      }
-      
-      // Block if total doesn't match any available quantity
-      return !availableTrayQuantities.includes(totalQuantity);
-    }
-    return false;
-  });
-  
-  console.log(`🔧 [validateDuplicateTrayIds] Validation result: hasErrors=${hasValidationErrors}`);
-  return !hasValidationErrors;
+
+  // Mark duplicates - REMOVED to allow backend reuse validation
+  // duplicates.forEach((inputsArray, trayId) => {
+  //   if (inputsArray.length > 1) {
+  //     inputsArray.forEach(({ input }) => {
+  //       input.classList.add('duplicate-error');
+  //       input.style.borderColor = '#dc3545';
+  //       input.style.backgroundColor = '#f8d7da';
+  //       const errorSpan = input.parentElement?.parentElement?.querySelector('.rejection-tray-error');
+  //       if (errorSpan) {
+  //         errorSpan.innerHTML = `❌ Duplicate tray ID: ${trayId}`;
+  //         errorSpan.style.display = 'block';
+  //         errorSpan.style.color = '#721c24';
+  //         errorSpan.style.backgroundColor = '#f8d7da';
+  //         errorSpan.style.border = '1px solid #f5c6cb';
+  //         errorSpan.style.padding = '6px 10px';
+  //         errorSpan.style.borderRadius = '4px';
+  //         errorSpan.style.fontSize = '12px';
+  //         errorSpan.style.fontWeight = '500';
+  //         errorSpan.style.marginTop = '4px';
+  //       }
+  //     });
+  //   }
+  // });
+
+  // Return true if no duplicates - always return true to allow reuse
+  return true;
 }
 
 // Show available quantities for all tray inputs in draft mode
@@ -6495,35 +6327,6 @@ function addInstantTrayValidationToInputs(trayIdCell) {
   console.log('🔧 [addInstantTrayValidationToInputs] ✅ Setup complete');
 }
 
-// ✅ Helper function to collect current session allocations
-function collectCurrentSessionAllocations() {
-  console.log('🔧 [collectCurrentSessionAllocations] Called');
-  const allocations = [];
-  const allInputs = document.querySelectorAll('.rejection-tray-id-input');
-  console.log('🔧 [collectCurrentSessionAllocations] Found inputs:', allInputs.length);
-  
-  allInputs.forEach((input, index) => {
-    const trayId = input.value.trim();
-    const reasonId = input.getAttribute('data-reason-id');
-    console.log(`🔧 [collectCurrentSessionAllocations] Input ${index + 1}: trayId="${trayId}", reasonId="${reasonId}"`);
-    
-    if (trayId && reasonId) {
-      const allocation = {
-        tray_id: trayId,
-        rejection_reason_id: reasonId,
-        rejection_qty: parseInt(input.getAttribute('data-tray-qty')) || 0
-      };
-      allocations.push(allocation);
-      console.log('🔧 [collectCurrentSessionAllocations] Added allocation:', allocation);
-    }
-  });
-  
-  console.log('🔧 [collectCurrentSessionAllocations] Final allocations:', allocations);
-  return allocations;
-}
-
-
-
 
 
 
@@ -6562,106 +6365,175 @@ if (!window.trayValidationPending) {
 const VALIDATION_DEBOUNCE_MS = 300; // 300ms debounce
 const CACHE_EXPIRY_MS = 30000; // 30 seconds cache
 
+// ✅ ENHANCED: Validate tray capacity with detailed console calculations
 function validateTrayCapacityAcrossRejections(trayId, currentInputElement) {
-  // ✅ NEW: Enhanced to check both capacity AND rejection reason match
-  console.log('🔧 [validateTrayCapacityAcrossRejections] Checking tray:', trayId);
+  console.log('🔧 [validateTrayCapacityAcrossRejections] ========= STARTING VALIDATION =========');
+  console.log('🔧 [validateTrayCapacityAcrossRejections] Tray ID:', trayId);
+  console.log('🔧 [validateTrayCapacityAcrossRejections] Current element:', currentInputElement);
   
   if (!trayId || !trayId.trim()) {
-    console.log('🔧 [validateTrayCapacityAcrossRejections] Empty tray ID, skipping validation');
+    console.log('⏭️ [validateTrayCapacityAcrossRejections] Empty tray ID, skipping');
     return { valid: true, error: null };
   }
   
-  // Get all rejection reason rows
-  const rejectionRows = document.querySelectorAll('#rejectionTableBody tr');
+  const currentReasonId = currentInputElement.getAttribute('data-reason-id');
+  const currentRejectionQty = parseInt(currentInputElement.getAttribute('data-tray-qty')) || 0;
   
-  // Track tray usage per rejection reason (EXCLUDING current input being validated)
-  const trayUsageByReason = {}; // { reasonId: { qty: number, inputs: [], reasonText: string } }
+  console.log('🔧 [validateTrayCapacityAcrossRejections] Current reason ID:', currentReasonId);
+  console.log('🔧 [validateTrayCapacityAcrossRejections] Current rejection qty:', currentRejectionQty);
   
-  rejectionRows.forEach(row => {
-    const reasonId = row.getAttribute('data-reason-id') || '';
-    const reasonText = row.querySelector('td:nth-child(3)')?.textContent.trim() || '';
-    const trayInputs = row.querySelectorAll('.rejection-tray-id-input');
-    
-    trayInputs.forEach(input => {
-      // ✅ CRITICAL: Skip the current input element being validated
-      if (input === currentInputElement) {
-        console.log('🔧 [validateTrayCapacityAcrossRejections] Skipping current input element');
-        return;
-      }
-      
-      const inputTrayId = input.value.trim().toUpperCase();
-      if (inputTrayId === trayId.toUpperCase()) {
-        const qty = parseInt(input.getAttribute('data-tray-qty')) || 0;
-        
-        if (!trayUsageByReason[reasonId]) {
-          trayUsageByReason[reasonId] = { 
-            qty: 0, 
-            inputs: [], 
-            reasonText: reasonText 
-          };
-        }
-        trayUsageByReason[reasonId].qty += qty;
-        trayUsageByReason[reasonId].inputs.push(input);
-      }
-    });
-  });
-  
-  console.log('🔧 [validateTrayCapacityAcrossRejections] Tray usage by reason (excluding current):', trayUsageByReason);
-  
-  // Get current input's rejection reason
-  const currentReasonId = currentInputElement?.getAttribute('data-reason-id') || '';
-  const currentReasonRow = currentInputElement?.closest('tr');
-  const currentReasonText = currentReasonRow?.querySelector('td:nth-child(3)')?.textContent.trim() || 'Unknown Reason';
-  console.log('🔧 [validateTrayCapacityAcrossRejections] Current input reason:', currentReasonId, currentReasonText);
-  
-  // ✅ CRITICAL CHECK: Tray already used for different rejection reason
-  const usedReasons = Object.keys(trayUsageByReason);
-  
-  if (usedReasons.length > 0) {
-    // Check if any of the used reasons are different from current
-    const differentReasons = usedReasons.filter(reasonId => reasonId !== currentReasonId);
-    
-    if (differentReasons.length > 0) {
-      // Tray is being used by a DIFFERENT rejection reason - NOT ALLOWED
-      const existingReason = differentReasons[0];
-      const existingReasonText = trayUsageByReason[existingReason].reasonText;
-      console.log('❌ [validateTrayCapacityAcrossRejections] Tray already used for different reason:', existingReason, existingReasonText);
-      return { 
-        valid: false, 
-        error: `Tray already used for "${existingReasonText}" (${existingReason}). Cannot use for different rejection reason.` 
-      };
-    }
-  }
-  
-  // ✅ CHECK: Tray capacity not exceeded for same rejection reason
-  // Get tray capacity from DOM
-  let trayCapacity = 16; // Default to Normal capacity
+  // ✅ Get tray capacity
+  let trayCapacity = 12; // Default
   const currentRow = document.querySelector('tr.highlighted-tray-scan') || document.querySelector('[data-stock-lot-id]');
   if (currentRow) {
     const trayCapacityText = currentRow.cells[7]?.textContent || '';
     if (trayCapacityText.includes('-')) {
-      // ✅ ENHANCED: Use proper default based on tray type
       const trayTypeName = trayCapacityText.split('-')[0]?.toLowerCase() || '';
       const defaultCapacity = trayTypeName.includes('jumbo') ? 12 : 16;
       trayCapacity = parseInt(trayCapacityText.split('-')[1]) || defaultCapacity;
     }
   }
   
-  // Calculate total quantity used in this tray (for same rejection reason)
-  const totalQtyUsed = usedReasons.length > 0 ? trayUsageByReason[usedReasons[0]].qty : 0;
-  console.log('🔧 [validateTrayCapacityAcrossRejections] Total qty used:', totalQtyUsed, 'Capacity:', trayCapacity);
+  console.log('📦 [validateTrayCapacityAcrossRejections] Tray capacity:', trayCapacity);
   
-  if (totalQtyUsed > trayCapacity) {
-    console.log('❌ [validateTrayCapacityAcrossRejections] Capacity exceeded');
-    return { 
-      valid: false, 
-      error: `Tray capacity exceeded (${totalQtyUsed}/${trayCapacity}). Cannot add more to this tray.` 
+  // ✅ Calculate total session allocations with detailed logging
+  let totalSessionQty = 0;
+  let sessionAllocations = [];
+  
+  console.log('📋 [validateTrayCapacityAcrossRejections] === COLLECTING SESSION ALLOCATIONS ===');
+  
+  document.querySelectorAll('.rejection-qty-input').forEach(qtyInput => {
+    const qty = parseInt(qtyInput.value) || 0;
+    const reasonId = qtyInput.getAttribute('data-reason-id');
+    
+    if (qty > 0) {
+      const row = qtyInput.closest('tr');
+      const reasonCell = row.cells[2];
+      const reasonText = reasonCell ? reasonCell.textContent.trim() : '';
+      
+      sessionAllocations.push({
+        reason_id: reasonId,
+        reason_text: reasonText,
+        qty: qty
+      });
+      
+      totalSessionQty += qty;
+      
+      console.log(`📋 [validateTrayCapacityAcrossRejections] Found allocation: ${reasonText} (${reasonId}) = ${qty} qty`);
+    }
+  });
+  
+  console.log('📊 [validateTrayCapacityAcrossRejections] Total session qty:', totalSessionQty);
+  console.log('📊 [validateTrayCapacityAcrossRejections] Session allocations:', sessionAllocations);
+  
+  // ✅ Get actual tray distribution for the current lot from modal data or API
+  let originalDistribution = [];
+  try {
+    // Try to get from modal data (if available)
+    const modal = document.getElementById("trayScanModal");
+    if (modal && modal.traysData && modal.traysData.length > 0) {
+      originalDistribution = modal.traysData.map(tray => tray.tray_quantity || 0);
+    }
+    // Fallback: Try to get from a global variable if set
+    if ((!originalDistribution || originalDistribution.length === 0) && window.currentLotTrayDistribution) {
+      originalDistribution = window.currentLotTrayDistribution;
+    }
+    // Final fallback: Use trayCapacity and number of trays
+    if (!originalDistribution || originalDistribution.length === 0) {
+      const trayCount = 4; // Default to 4 trays if unknown
+      originalDistribution = Array(trayCount).fill(trayCapacity);
+      // Optionally, set the first tray to the remainder if you have total qty
+    }
+  } catch (e) {
+    originalDistribution = [trayCapacity, trayCapacity, trayCapacity, trayCapacity];
+  }
+  console.log('📦 [validateTrayCapacityAcrossRejections] Original distribution:', originalDistribution);
+  
+  // ✅ Calculate trays emptied by sequential subtraction
+  let remaining = totalSessionQty;
+  let traysEmptied = [];
+  
+  console.log('🧮 [validateTrayCapacityAcrossRejections] ===== SUBTRACTION CALCULATION =====');
+  console.log(`🧮 [validateTrayCapacityAcrossRejections] Starting with remaining: ${remaining}`);
+  
+  for (let i = 0; i < originalDistribution.length; i++) {
+    const trayQty = originalDistribution[i];
+    
+    console.log(`🧮 [validateTrayCapacityAcrossRejections] Tray ${i + 1}: qty=${trayQty}, remaining=${remaining}`);
+    
+    if (remaining <= 0) {
+      console.log(`🧮 [validateTrayCapacityAcrossRejections] No more remaining, breaking`);
+      break;
+    }
+    
+    if (remaining >= trayQty) {
+      traysEmptied.push(i + 1); // Use 1-based index for display
+      remaining -= trayQty;
+      console.log(`✅ [validateTrayCapacityAcrossRejections] 🎯 Tray ${i + 1} will be emptied! Remaining: ${remaining}`);
+    } else {
+      console.log(`❌ [validateTrayCapacityAcrossRejections] Tray ${i + 1} partially used (${remaining}/${trayQty}) - breaking`);
+      break;
+    }
+  }
+  
+  const reuseAllowedByEmptying = traysEmptied.length > 0;
+  console.log('🎯 [validateTrayCapacityAcrossRejections] Trays that will be emptied:', traysEmptied);
+  console.log('🎯 [validateTrayCapacityAcrossRejections] Reuse allowed by emptying:', reuseAllowedByEmptying);
+  
+  // ✅ NEW: Allow reuse for small quantities that don't exceed first tray
+  const allowSmallQuantities = totalSessionQty <= originalDistribution[0];
+  console.log('🎯 [validateTrayCapacityAcrossRejections] Allow small quantities:', allowSmallQuantities, `(${totalSessionQty} <= ${originalDistribution[0]})`);
+  
+  const reuseAllowed = reuseAllowedByEmptying || allowSmallQuantities;
+  
+  // ✅ Enhanced: Check for conflicts with other rejection reasons
+  let isAvailable = true;
+  let conflictReasons = [];
+  
+  document.querySelectorAll('.rejection-tray-id-input').forEach(input => {
+    if (input !== currentInputElement && input.value.trim() === trayId) {
+      const inputReasonId = input.getAttribute('data-reason-id');
+      if (inputReasonId !== currentReasonId) {
+        isAvailable = false;
+        conflictReasons.push(inputReasonId);
+        console.log(`⚠️ [validateTrayCapacityAcrossRejections] CONFLICT: Tray already used by reason ${inputReasonId}`);
+      }
+    }
+  });
+  
+  console.log('🔧 [validateTrayCapacityAcrossRejections] Final results:');
+  console.log('  - Is available (no conflicts):', isAvailable);
+  console.log('  - Reuse allowed by logic:', reuseAllowed);
+  console.log('  - Overall valid:', isAvailable && reuseAllowed);
+  console.log('🔧 [validateTrayCapacityAcrossRejections] ========= VALIDATION COMPLETE =========');
+  
+  if (!isAvailable) {
+    return {
+      valid: false,
+      error: `Tray already allocated to reason(s): ${conflictReasons.join(', ')}`
     };
   }
   
-  console.log('✅ [validateTrayCapacityAcrossRejections] Validation passed');
-  return { valid: true, error: null };
+  if (!reuseAllowed) {
+    return {
+      valid: false,
+      error: `Reuse restricted: Total qty ${totalSessionQty} doesn't qualify for reuse (distribution: ${originalDistribution.join(', ')})`
+    };
+  }
+  
+  return {
+    valid: true,
+    error: null,
+    details: {
+      totalSessionQty,
+      traysEmptied,
+      originalDistribution,
+      allowedBySmallQty: allowSmallQuantities
+    }
+  };
 }
+
+
 
 // ✅ Simple validation function for fallback
 function validateTrayIdSimple(inputElement, trayId) {
@@ -6751,38 +6623,39 @@ function validateTrayIdSimple(inputElement, trayId) {
       });
     });
     
-    // ✅ UPDATED: Handle duplicates but allow backend validation for perfect match scenarios  
+    // ✅ FIXED: Block duplicate tray IDs completely - same tray cannot be used twice  
     if (duplicateInSameReason || duplicateInOtherReason) {
-      console.log('🔧 [validateTrayIdSimple] ⚠️ Duplicate tray ID detected:', {
+      console.log('🔧 [validateTrayIdSimple] ❌ Duplicate tray ID detected - BLOCKING:', {
         duplicateInSameReason,
         duplicateInOtherReason,
         otherReason: otherReasonText
       });
       
-      // Show warning style instead of error style
-      inputElement.style.borderColor = '#ffc107';
-      inputElement.style.backgroundColor = '#fff3cd';
-      // Don't set _isValid = false - let backend validation determine validity
+      // Show error style and block validation
+      inputElement.style.borderColor = '#dc3545';
+      inputElement.style.backgroundColor = '#f8d7da';
+      inputElement._isValid = false;
       
       if (errorSpan) {
         let errorMessage = '';
         if (duplicateInOtherReason) {
-          errorMessage = `⚠️ Duplicate: Tray "${trayId}" used in "${otherReasonText}" (${otherReasonId}) - Checking perfect match...`;
+          errorMessage = `❌ Error: Tray "${trayId}" already used in "${otherReasonText}" (${otherReasonId}) - Each tray can only be used once`;
         } else {
-          errorMessage = `⚠️ Duplicate: Tray "${trayId}" used in this rejection reason - Checking perfect match...`;
+          errorMessage = `❌ Error: Tray "${trayId}" already used in this rejection reason - Each tray can only be used once`;
         }
         
         errorSpan.innerHTML = errorMessage;
         errorSpan.style.display = 'block';
-        errorSpan.style.color = '#856404';
-        errorSpan.style.backgroundColor = '#fff3cd';
-        errorSpan.style.border = '1px solid #ffeaa7';
+        errorSpan.style.color = '#721c24';
+        errorSpan.style.backgroundColor = '#f8d7da';
+        errorSpan.style.border = '1px solid #f5c6cb';
         errorSpan.style.padding = '6px 10px';
         errorSpan.style.borderRadius = '4px';
         errorSpan.style.fontSize = '12px';
         errorSpan.style.marginTop = '4px';
       }
-      // Don't return here - allow backend validation to proceed for perfect match scenarios
+      updateFormValidationState();
+      return; // Block further validation for duplicate trays
     }
   }
   
@@ -6884,12 +6757,15 @@ function applyCachedValidationResult(inputElement, errorSpan, data, trayId) {
 // ✅ NEW: Perform actual API validation
 function performTrayValidation(inputElement, errorSpan, trayId, lotId, rejectionQty, rejectionReasonId, isDraftMode, cacheKey) {
   
+  // ✅ FIXED: Collect current session allocations excluding the current input
+  const currentSessionAllocations = collectCurrentSessionAllocations(inputElement);
+  
   const queryParams = new URLSearchParams({
     tray_id: trayId,
     lot_id: lotId,
     rejection_qty: rejectionQty,
     rejection_reason_id: rejectionReasonId,
-    current_session_allocations: '[]',
+    current_session_allocations: JSON.stringify(currentSessionAllocations),
     is_draft: isDraftMode ? 'true' : 'false'
   });
   
@@ -7638,26 +7514,21 @@ function interceptFormSubmission() {
    }
    
    // ✅ NEW: Function to get tray capacities for current lot
-   function getTrayCapacitiesForCurrentLot() {
+   
+  function getTrayCapacitiesForCurrentLot() {
+    // Try to get from modal data (populated by backend)
+    const modal = document.getElementById("trayScanModal");
+    if (modal && modal.traysData && modal.traysData.length > 0) {
+      return modal.traysData.map(tray => tray.tray_quantity || tray.tray_capacity || 0);
+    }
+    // Fallback: fetch from backend API (synchronously or via promise)
+    // Example API: /inputscreening/ip_completed_tray_id_list/?batch_id=...
+    // Or, if not available, return empty array
+    return [];
+  }
 
-   
-   const modal = document.getElementById("trayScanModal");
-   const currentRow = document.querySelector('tr.highlighted-tray-scan');
-   
-   if (currentRow) {
-   const trayCapacityText = currentRow.cells[7]?.textContent || ''; // Tray Category-Capacity column
-   const trayCapacity = trayCapacityText.includes('-') ? 
-                       parseInt(trayCapacityText.split('-')[1]) : 10;
-   
-   // For simplicity, assuming all trays have same capacity
-   // You can modify this to get actual tray capacities from your API
-   return Array(10).fill(trayCapacity); // Assuming max 10 trays with same capacity
-   }
-   
-   // Default fallback
-   return [6, 12, 12, 10, 10, 10, 10, 10, 10, 10]; // Sample capacities
-   }
-   
+
+
    function addMultipleTrayIdValidationWithDynamic(trayIdCell) {
    const trayInputs = trayIdCell.querySelectorAll('.rejection-tray-id-input');
    
@@ -8925,6 +8796,37 @@ function interceptFormSubmission() {
        return modal?.dataset?.stockLotId || '';
      }
    
+   // ✅ SIMPLIFIED: collectCurrentSessionAllocations function for frontend compatibility
+   function collectCurrentSessionAllocations(excludeInput) {
+     const allocations = [];
+     
+     console.log('📊 [collectCurrentSessionAllocations] Starting allocation collection...');
+     
+     document.querySelectorAll('.rejection-qty-input').forEach(qtyInput => {
+       const qty = parseInt(qtyInput.value) || 0;
+       const reasonId = qtyInput.getAttribute('data-reason-id');
+       
+       if (qty > 0) {
+         const row = qtyInput.closest('tr');
+         const reasonCell = row.cells[2];
+         const reasonText = reasonCell ? reasonCell.textContent.trim() : '';
+         
+         console.log(`📋 [collectCurrentSessionAllocations] Processing reason ${reasonId} (${reasonText}): qty=${qty}`);
+         
+         // For the new simplified logic, we just need the basic rejection quantities
+         allocations.push({
+           reason_id: reasonId,
+           reason_text: reasonText,
+           qty: qty,
+           rejection_qty: qty  // Add both for compatibility
+         });
+       }
+     });
+     
+     console.log('📊 [collectCurrentSessionAllocations] FINAL allocations:', allocations);
+     return allocations;
+   }
+
    // ✅ ENHANCED: Update rejection scan counter with quantity tracking
    function updateRejectionScanCounter() {
    const counter = document.getElementById('rejectionScanCounter');
@@ -13214,6 +13116,48 @@ document.addEventListener('input', function(event) {
         showErrorMessage(violation);
       }
     }, 500); // 500ms delay to avoid excessive checks
+  }
+});
+
+// ✅ ENHANCED: Monitor quantity input changes for instant calculations
+document.addEventListener('input', function(event) {
+  if (event.target.classList.contains('rejection-qty-input')) {
+    const qtyInput = event.target;
+    const qty = parseInt(qtyInput.value) || 0;
+    const reasonId = qtyInput.getAttribute('data-reason-id');
+    
+    console.log('📊 [Qty Monitor] Quantity changed for reason', reasonId, '- new qty:', qty);
+    
+    // Trigger instant validation for all tray inputs
+    document.querySelectorAll('.rejection-tray-id-input').forEach(trayInput => {
+      const trayId = trayInput.value.trim();
+      if (trayId) {
+        console.log('🔍 [Qty Monitor] Re-validating tray:', trayId);
+        const validation = validateTrayCapacityAcrossRejections(trayId, trayInput);
+        
+        const errorSpan = trayInput.parentElement.querySelector('.rejection-tray-error');
+        
+        if (!validation.valid) {
+          trayInput.style.borderColor = '#dc3545';
+          trayInput.style.backgroundColor = '#f8d7da';
+          
+          if (errorSpan) {
+            errorSpan.innerHTML = `❌ ${validation.error}`;
+            errorSpan.style.display = 'block';
+            errorSpan.style.color = '#721c24';
+          }
+        } else {
+          trayInput.style.borderColor = '#28a745';
+          trayInput.style.backgroundColor = '#d4edda';
+          
+          if (errorSpan) {
+            errorSpan.innerHTML = '✅ Reuse allowed';
+            errorSpan.style.display = 'block';
+            errorSpan.style.color = '#155724';
+          }
+        }
+      }
+    });
   }
 });
 
