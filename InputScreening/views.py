@@ -3222,7 +3222,10 @@ def get_rejection_draft(request):
         ).first()
         
         if draft:
-            draft_data = draft.draft_data.copy()
+            if isinstance(draft.draft_data, str):
+                draft_data = json.loads(draft.draft_data)
+            else:
+                draft_data = draft.draft_data.copy()
             draft_data['lot_rejection_remarks'] = draft.lot_rejection_remarks or ''
             
             print(f"✅ [get_rejection_draft] Found draft for lot {lot_id}")
@@ -4235,6 +4238,8 @@ def reject_check_tray_id_simple(request):
     # --- FIX: Use only the current session's rejection qty for this tray, not the sum of all ---
     # Find the allocation for this tray in the current session
     session_qty_for_this_tray = 0
+    current_reason_uses_same_tray = 0  # Count how many times this tray is used for current reason
+    
     for alloc in current_session_allocations:
         # Accept both 'tray_ids' (list) and 'tray_id' (single)
         tray_ids = alloc.get('tray_ids') or []
@@ -4242,6 +4247,19 @@ def reject_check_tray_id_simple(request):
             tray_ids = [tray_ids]
         if tray_id in tray_ids or alloc.get('tray_id') == tray_id:
             session_qty_for_this_tray += int(alloc.get('qty', 0) or alloc.get('rejection_qty', 0) or 0)
+            # Check if this is the same rejection reason
+            if alloc.get('reason_id') == rejection_reason_id:
+                current_reason_uses_same_tray += 1
+    
+    # Prevent same tray from being used multiple times for same rejection reason
+    if current_reason_uses_same_tray > 0:
+        return JsonResponse({
+            'exists': True,
+            'valid_for_rejection': False,
+            'error': f'Tray {tray_id} is already used for rejection reason {rejection_reason_id}',
+            'status_message': f'Same tray cannot be used multiple times for same rejection reason'
+        })
+    
     # If not found, fallback to the direct rejection_qty
     if session_qty_for_this_tray == 0:
         session_qty_for_this_tray = rejection_qty
@@ -4253,13 +4271,17 @@ def reject_check_tray_id_simple(request):
     # --- FIXED LOGIC: Allow reuse if the rejection qty for this tray will empty any trays (by subtracting in order) ---
     trays_emptied = []
     remaining = session_qty_for_this_tray
-    for i, tray_qty in enumerate(original_distribution):
+    # Sort trays by qty (smallest first)
+    sorted_indices = sorted(range(len(original_distribution)), key=lambda i: original_distribution[i])
+    for i in sorted_indices:
+        tray_qty = original_distribution[i]
         if remaining <= 0:
             break
         if remaining >= tray_qty:
             trays_emptied.append(i)
             remaining -= tray_qty
         else:
+            # Partial consumption, tray not emptied
             break
 
     individual_tray_match = session_qty_for_this_tray in original_distribution
