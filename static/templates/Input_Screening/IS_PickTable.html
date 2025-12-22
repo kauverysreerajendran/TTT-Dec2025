@@ -974,7 +974,7 @@ input:checked + .hold-slider:before {
                         data-remark="{{ data.IP_pick_remarks|default_if_none:'' }}">
 
 
-<td {% if data.ip_hold_lot %} class="row-inactive-blur"{% endif %}>
+<td>
   <span style="display:flex; align-items:center; gap:3px;">
     {% if is_admin %}
     <!-- Admin users: Show toggle switch -->
@@ -1690,12 +1690,10 @@ document.addEventListener("DOMContentLoaded", function () {
               const currentUrl = new URL(window.location);
               const currentPage = currentUrl.searchParams.get('page') || '1';
               
-              // Show error message instead of searching
+              // If not found, search across pages to locate and highlight
               scanStatus.style.color = "#dc3545";
-              scanStatus.textContent = "Lot not found on current page";
-              
-              // Do not search across pages to prevent flickering
-              // searchLotIdAcrossPages(data.lot_id, trayId, currentPage);
+              scanStatus.textContent = "Lot not found on current page, searching...";
+              searchLotIdAcrossPages(data.lot_id, trayId, currentPage);
             }
             
             // Reset scan status if row was found on current page
