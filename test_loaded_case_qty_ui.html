@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Test Loaded Case Qty Fix</title>
+  </head>
+  <body>
+    <h1>Testing Loaded Case Qty Functionality</h1>
+
+    <!-- Mock DOM elements for testing -->
+    <div>
+      <label>Loaded Case Qty:</label>
+      <input type="text" id="modalLotQty" value="0/50" disabled />
+    </div>
+
+    <div>
+      <label>Jig Capacity:</label>
+      <input type="text" id="modalJigCapacity" value="98" disabled />
+    </div>
+
+    <!-- Mock tray inputs -->
+    <div id="delinkTrayTable">
+      <input
+        type="text"
+        class="tray-input"
+        data-qty="9"
+        placeholder="Scan Tray 1"
+      />
+      <input
+        type="text"
+        class="tray-input"
+        data-qty="9"
+        placeholder="Scan Tray 2"
+      />
+      <input
+        type="text"
+        class="tray-input"
+        data-qty="9"
+        placeholder="Scan Tray 3"
+      />
+    </div>
+
+    <!-- Half filled section -->
+    <div id="halfFilledTraySection">
+      <input type="text" id="halfFilledTrayId" placeholder="Half filled tray" />
+      <input type="number" id="halfFilledTrayQty" value="5" readonly />
+    </div>
+
+    <button onclick="testUpdateLoadedQty()">Test Update Loaded Qty</button>
+    <button onclick="simulateValidTray()">Simulate Valid Tray Scan</button>
+    <button onclick="simulateInvalidTray()">Simulate Invalid Tray</button>
+
+    <div id="output"></div>
+
+    <script>
+      // Copy the updateLoadedQty function from the implementation
+      function updateLoadedQty() {
+        // Get all tray inputs in the delink tray table
+        const trayInputs = document.querySelectorAll(
+          '#delinkTrayTable input[type="text"]'
+        );
+        let loadedQty = 0;
+
+        trayInputs.forEach((input) => {
+          // Only count if input is valid (has .input-valid class)
+          if (input.classList.contains("input-valid") && input.value.trim()) {
+            // Get the tray quantity from data attribute or default to tray capacity
+            let qty = parseInt(input.getAttribute("data-qty")) || 0;
+            if (!qty) {
+              // Default to standard tray capacity if no specific quantity found
+              qty = 9; // Standard tray capacity
+            }
+            loadedQty += qty;
+          }
+        });
+
+        // Add half-filled tray quantity if valid
+        const halfTrayInput = document.querySelector("#halfFilledTrayId");
+        const halfTrayQtyInput = document.querySelector("#halfFilledTrayQty");
+        if (
+          halfTrayInput &&
+          halfTrayInput.classList.contains("input-valid") &&
+          halfTrayInput.value.trim()
+        ) {
+          const halfQty = parseInt(halfTrayQtyInput?.value) || 0;
+          loadedQty += halfQty;
+        }
+
+        // Get the total lot quantity (denominator)
+        const lotQtyInput = document.getElementById("modalLotQty");
+        let totalLotQty = 0;
+        if (lotQtyInput) {
+          // Check if value is already in format "x/y"
+          const currentValue = lotQtyInput.value;
+          if (currentValue.includes("/")) {
+            const parts = currentValue.split("/");
+            totalLotQty = parseInt(parts[1]) || 0;
+          } else {
+            // If not in format, use the current value as total
+            totalLotQty = parseInt(currentValue) || 0;
+          }
+        }
+
+        // Get jig capacity constraint
+        const jigCapacityInput = document.getElementById("modalJigCapacity");
+        let jigCapacity =
+          parseInt(jigCapacityInput ? jigCapacityInput.value : 0) || 98;
+
+        // Cap loadedQty at minimum of totalLotQty and jig capacity
+        loadedQty = Math.min(loadedQty, totalLotQty, jigCapacity);
+
+        // Update the Loaded Case Qty field with format "loaded/total"
+        if (lotQtyInput) {
+          lotQtyInput.value = `${loadedQty}/${totalLotQty}`;
+        }
+
+        console.log(
+          `🔧 Updated Loaded Case Qty: ${loadedQty}/${totalLotQty} (Jig capacity: ${jigCapacity})`
+        );
+
+        // Update output div for testing
+        const output = document.getElementById("output");
+        output.innerHTML = `<p><strong>Updated:</strong> ${loadedQty}/${totalLotQty} (Jig capacity: ${jigCapacity})</p>`;
+      }
+
+      function testUpdateLoadedQty() {
+        console.log("Testing updateLoadedQty function...");
+        updateLoadedQty();
+      }
+
+      function simulateValidTray() {
+        const trayInputs = document.querySelectorAll(
+          '#delinkTrayTable input[type="text"]'
+        );
+        const emptyInput = Array.from(trayInputs).find(
+          (input) => !input.value.trim()
+        );
+
+        if (emptyInput) {
+          emptyInput.value = `TRAY-${Date.now().toString().slice(-3)}`;
+          emptyInput.classList.add("input-valid");
+          emptyInput.setAttribute("data-qty", "9");
+          updateLoadedQty();
+
+          const output = document.getElementById("output");
+          output.innerHTML += `<p>✅ Simulated valid tray scan for: ${emptyInput.value}</p>`;
+        }
+      }
+
+      function simulateInvalidTray() {
+        const trayInputs = document.querySelectorAll(
+          '#delinkTrayTable input[type="text"]'
+        );
+        const validInput = Array.from(trayInputs).find((input) =>
+          input.classList.contains("input-valid")
+        );
+
+        if (validInput) {
+          validInput.value = "";
+          validInput.classList.remove("input-valid");
+          validInput.removeAttribute("data-qty");
+          updateLoadedQty();
+
+          const output = document.getElementById("output");
+          output.innerHTML += `<p>❌ Simulated invalid/cleared tray</p>`;
+        }
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", function () {
+        const output = document.getElementById("output");
+        output.innerHTML = "<p><strong>Initial State:</strong> 0/50</p>";
+        console.log("Test page loaded");
+      });
+    </script>
+  </body>
+</html>

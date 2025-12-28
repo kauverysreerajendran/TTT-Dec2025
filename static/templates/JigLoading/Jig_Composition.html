@@ -12,9 +12,6 @@
   gap: 1.5rem;
   padding: 1rem 0;
   margin-top: -40px; /* Move cards up */
-  width: 100vw; /* Increased to match screen width */
-  height: 100vh; /* Increased to match screen height */
-  position: relative; /* Ensure positioning for full screen */
 }
 /* Add below your existing .model-column and .case-badges styles, do not alter existing lines */
 .model-column {
@@ -183,15 +180,10 @@ h5.text-left.mt-0.mb-3 {
   <div class="row">
     <div class="col-12 grid-margin stretch-card">
           <div class="container py-4">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-              <h3 class="text-left mt-0 mb-3" style="margin: 15px 0 !important;">Jig Composition</h3>
-              <button id="back-btn" class="btn btn-secondary" style="margin-bottom: 10px;">
-                <i class="fa fa-arrow-left"></i> Back
-              </button>
-            </div>
+            <h5 class="text-left mt-0 mb-3">Jig Composition</h5>
               <div style="height: 18px;"></div>
             <!-- Tray Cards -->
-              <div class="model-columns" style="padding:40px; background: #f3f3f3;">
+              <div class="model-columns">
                 {% for card in cards %}
                   <div class="model-column">
                     <div class="model-header" style="background: {{ card.color }};">
@@ -220,10 +212,5 @@ h5.text-left.mt-0.mb-3 {
         </div>
       </div>
   
-<script nonce="{{ csp_nonce }}">
-document.getElementById('back-btn').addEventListener('click', function() {
-  window.location.href = '/jig_loading/JigView/?selected_lots={{ selected_lot_ids|join:"," }}';
-});
-</script>
 {% endblock %}
 </div>

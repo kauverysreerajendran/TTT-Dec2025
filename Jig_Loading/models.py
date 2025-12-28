@@ -12,7 +12,7 @@ import uuid
 
 #jig qr model
 class Jig(models.Model):
-    jig_qr_id = models.CharField(max_length=100, unique=True, help_text="Unique Jig QR ID", )
+    jig_qr_id = models.CharField(max_length=100, unique=True, help_text="Unique Jig QR ID")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_loaded = models.BooleanField(default=False, help_text="Is this Jig currently loaded?")
@@ -106,15 +106,9 @@ class JigLoadTrayId(models.Model):
 class JigLoadingMaster(models.Model):
     model_stock_no = models.ForeignKey('modelmasterapp.ModelMaster', on_delete=models.CASCADE, help_text="Model Stock Number")
     jig_type = models.CharField(max_length=100, help_text="Jig Type")
-    # jig_capacity = models.IntegerField(help_text="Jig Capacity")
-    
-    jig_capacity = models.IntegerField(
-        help_text="Jig Capacity",
-        default=0,           # Allow default 0
-        blank=True,          # Allow blank in admin
-        null=True            # Allow null in DB
-    )
+    jig_capacity = models.IntegerField(help_text="Jig Capacity")
     forging_info = models.CharField(max_length=100, help_text="Forging Info")
+    
     
     def __str__(self):
         return f"{self.model_stock_no} - {self.jig_type} - {self.jig_capacity}"
@@ -151,8 +145,7 @@ class JigDetails(models.Model):
     ]
     jig_qr_id = models.CharField(max_length=100)
     faulty_slots = models.IntegerField(default=0)
-    # Number of broken / buildup hooks (synced with DB migration 0003_add_broken_hooks)
-    broken_hooks = models.IntegerField(default=0)
+    broken_hooks = models.IntegerField(default=0, help_text="Number of broken hooks")
     jig_type = models.CharField(max_length=50)  # New field
     jig_capacity = models.IntegerField()        # New field
     bath_tub = models.CharField(max_length=100, help_text="Bath Tub",blank=True, null=True)

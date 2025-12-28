@@ -3636,8 +3636,6 @@ function handleDraftSave() {
     .then(data => {
         console.log('🔄 [handleDraftSave] Response:', data);
         if (data.success) {
-            // ✅ FIXED: Show success message and wait longer before reload
-            showSuccessMessage('✅ Draft saved successfully');
             
             // ✅ NEW: Disable auto-save temporarily to prevent interference
             window.isManualDraftInProgress = true;
@@ -13576,6 +13574,53 @@ document.addEventListener("DOMContentLoaded", function () {
       if (overlay) overlay.style.display = 'none';
     });
   }
+});
+</script>
+
+<script>
+// === Auto Lot Rejection Checkbox Logic ===
+document.addEventListener('DOMContentLoaded', function() {
+  // Update these selectors to match your actual input IDs/names
+  const lotQtyInput = document.querySelector('[name="lot_qty"], #lot_qty, .lot-qty');
+  const totalQtyInput = document.querySelector('[name="total_qty"], #total_qty, .total-qty');
+  const rejInputs = [
+    document.querySelector('[name="R01"], #R01, .rej-r01'),
+    document.querySelector('[name="R02"], #R02, .rej-r02'),
+    document.querySelector('[name="R03"], #R03, .rej-r03')
+  ];
+  const lotRejCheckbox = document.querySelector('[name="lot_rejection"], #lot_rejection, .lot-rejection-checkbox');
+  const lotRejSection = document.querySelector('#lot-rejection-section, .lot-rejection-section');
+
+  function getQty(input) {
+    if (!input) return 0;
+    let val = input.value;
+    return val ? parseInt(val, 10) || 0 : 0;
+  }
+
+  function checkLotRejection() {
+    const lotQty = getQty(lotQtyInput) || getQty(totalQtyInput);
+    const rejSum = rejInputs.reduce((sum, inp) => sum + getQty(inp), 0);
+    if (lotQty > 0 && rejSum === lotQty) {
+      if (lotRejCheckbox && !lotRejCheckbox.checked) {
+        lotRejCheckbox.checked = true;
+        // Optionally trigger change event if needed by other logic
+        lotRejCheckbox.dispatchEvent(new Event('change'));
+      }
+      // Scroll to Lot Rejection section if present
+      if (lotRejSection) {
+        lotRejSection.scrollIntoView({behavior: 'smooth', block: 'center'});
+      }
+    }
+  }
+
+  // Attach listeners to rejection inputs
+  rejInputs.forEach(function(inp) {
+    if (inp) {
+      inp.addEventListener('input', checkLotRejection);
+    }
+  });
+  // Also check on page load in case values are pre-filled
+  checkLotRejection();
 });
 </script>
 

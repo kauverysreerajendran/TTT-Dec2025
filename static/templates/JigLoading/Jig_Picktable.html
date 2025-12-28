@@ -3,6 +3,8 @@
 {% load stock_filters %} 
 
 <style>
+
+  
  /* Tray validation message styles (non-destructive) */
 .tray-validation-message {
   margin-top: 6px;
@@ -805,7 +807,7 @@ box-shadow: 2px 0 8px rgba(0,0,0,0.04);
 
 
 
-    .blurred-heading, .blurred-cell {
+    .blurred-heading, .row-inactive-blur {
     filter: blur(2px) grayscale(0.7) opacity(0.6);
     pointer-events: none !important;
     user-select: none;
@@ -1887,9 +1889,9 @@ h6 {
                           style="width: 60px; padding: 2px 6px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px;"
                           readonly />
                   </td>
-                  <td {% if data.jig_hold_lot %} class="row-inactive-blur" {% endif %}>
-                      {{data.jig_type}} - Jig
-                  </td>
+                    <td {% if data.jig_hold_lot %} class="row-inactive-blur" {% endif %}>
+                      Jig{% if data.jig_capacity %} - {{ data.jig_capacity }}{% endif %}
+                    </td>
                   <td {% if data.jig_hold_lot %} class="row-inactive-blur" {% endif %}>
                       <span class="mobile-cross-icon" title="Item removed" style="cursor: pointer; display: inline-flex; align-items: center;">
                         <img src="{% static 'assets/icons/viewRemarks.png' %}" alt="View Remarks" 
@@ -2129,11 +2131,6 @@ h6 {
                       <label>Nickel Bath Type</label>
                       <input type="text" placeholder="Auto Fetch" disabled id="modalBathType" />
                     </div>
-
-                  <div class="form-group">
-                      <label>Lot Qty</label>
-                      <input type="text" placeholder="Auto Fetch" disabled id="modalActualLotQty" />
-                    </div>
                     <div class="form-group">
                       <label>Broken/Buildup Hooks</label>
                       <input type="number" placeholder="Enter Broken/Buildup Hooks" id="modalFaultySlots" min="0" />
@@ -2192,6 +2189,8 @@ h6 {
       <input type="number" id="halfFilledTrayQty" readonly style="width: 120px; padding: 8px 12px; border: 1px solid #e0e7ef; border-radius: 6px; font-size: 14px; background-color: #f8f9fa;" />
     </div>
   </div>
+  <!-- Add halfFilledTrayTable element expected by JavaScript population functions -->
+  <div id="halfFilledTrayTable" style="margin-top: 10px;"></div>
 </div>
                   
 
@@ -2342,9 +2341,6 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Smart function to check if current modal has meaningful draft
     function checkDraftStatus() {
-        const clearDraftBtn = document.getElementById('clearDraftBtn');
-        if (!clearDraftBtn) return; // Button doesn't exist
-        
         const currentLotId = window.currentLotIds && window.currentLotIds.length > 0 ? window.currentLotIds[0] : null;
         
         if (!currentLotId) {
@@ -2359,8 +2355,6 @@ document.addEventListener("DOMContentLoaded", function() {
         fetch(`/jig_loading/check_meaningful_draft/?lot_id=${encodeURIComponent(currentLotId)}`)
             .then(response => response.json())
             .then(data => {
-                if (!clearDraftBtn) return; // Button might have been removed
-                
                 if (data.has_meaningful_draft) {
                     clearDraftBtn.disabled = false;
                     clearDraftBtn.style.opacity = '1';
@@ -2375,8 +2369,6 @@ document.addEventListener("DOMContentLoaded", function() {
             })
             .catch(error => {
                 console.error('Draft check failed:', error);
-                if (!clearDraftBtn) return; // Button might have been removed
-                
                 // Fallback to table cell check
                 const currentRow = document.querySelector(`tr[data-stock-lot-id="${currentLotId}"]`);
                 if (currentRow) {
@@ -2654,6 +2646,7 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>
 
 <!--No of Cycle Dynamic-->
+
 <script nonce="{{ csp_nonce }}">
 document.addEventListener("DOMContentLoaded", function() {
   console.log("🔧 Enhanced Cycle Count with Alert Messages");
@@ -4707,7 +4700,10 @@ document.addEventListener('keydown', function(e) {
     return msgDiv;
   }
 
-// Enhanced instant validation function for JIG QR ID with jig capacity matching
+// JIG QR ID - instant validation function for with jig capacity matching
+
+
+// JIG QR ID - instant validation function for with jig capacity matching
 function validateJigQrIdInstant(qrId) {
     if (!qrId.trim()) {
         clearQrValidationMessage();
@@ -4715,17 +4711,17 @@ function validateJigQrIdInstant(qrId) {
         disableSubmitButtons();
         return;
     }
-    
+
     // Enhanced format validation with jig capacity matching
     const trimmedQrId = qrId.trim().toUpperCase();
-    
+
     // Check length and format
     if (trimmedQrId.length < 9) {
         if (trimmedQrId.length >= 1 && !trimmedQrId.startsWith('J')) {
             showQrValidationMessage('error', 'Invalid format. Must start with "J"');
             setInputErrorStyle();
             disableSubmitButtons();
-            focusAtPosition(0);
+            autoSelectJigInput();
             return;
         }
         if (trimmedQrId.length >= 4) {
@@ -4734,23 +4730,23 @@ function validateJigQrIdInstant(qrId) {
                 showQrValidationMessage('error', 'Invalid prefix. Expected format: J###-####');
                 setInputErrorStyle();
                 disableSubmitButtons();
-                focusAtPosition(1);
+                autoSelectJigInput();
                 return;
             }
-            
+
             // **CRITICAL FIX**: Check if prefix matches expected jig capacity
             const expectedJigCapacity = getCurrentJigCapacity();
             if (expectedJigCapacity && prefix !== expectedJigCapacity.toString().padStart(3, '0')) {
                 showQrValidationMessage('error', `JIG ID prefix "${prefix}" is wrong. Expected: J${expectedJigCapacity.toString().padStart(3, '0')} (matches jig capacity)`);
                 setInputErrorStyle();
                 disableSubmitButtons();
-                focusAtPosition(1);
+                autoSelectJigInput();
                 return;
             }
         }
         return; // Don't validate incomplete IDs
     }
-    
+
     // Check exact format for complete ID
     if (!/^J\d{3}-\d{4}$/.test(trimmedQrId)) {
         if (!trimmedQrId.includes('-') && trimmedQrId.length === 8) {
@@ -4760,10 +4756,10 @@ function validateJigQrIdInstant(qrId) {
         }
         setInputErrorStyle();
         disableSubmitButtons();
-        focusAtPosition();
+        autoSelectJigInput();
         return;
     }
-    
+
     // **CRITICAL**: Validate prefix against jig capacity
     const prefix = trimmedQrId.substring(1, 4);
     const expectedJigCapacity = getCurrentJigCapacity();
@@ -4773,16 +4769,16 @@ function validateJigQrIdInstant(qrId) {
             showQrValidationMessage('error', `JIG ID prefix "${prefix}" is wrong. Expected: J${expectedPrefix} (matches jig capacity ${expectedJigCapacity})`);
             setInputErrorStyle();
             disableSubmitButtons();
-            focusAtPosition(1);
+            autoSelectJigInput();
             return;
         }
     }
-    
+
     showQrLoadingState();
-    
+
     // Get current lot ID from modal context
     const currentLotId = getCurrentLotId();
-    
+
     fetch('/jig_loading/validate_jig_qr/', {
         method: 'POST',
         headers: {
@@ -4798,41 +4794,44 @@ function validateJigQrIdInstant(qrId) {
     .then(response => response.json())
     .then(data => {
         clearQrLoadingState();
-        
+
         const input = document.getElementById('modalJigQrId');
         console.log('🔍 Jig QR validation result:', data);
-        
+
         if (data.valid) {
             // JIG is valid and available - GREEN border with enhanced styling
             showQrValidationMessage('success', data.message || 'JIG QR ID is valid and available');
             setInputSuccessStyle();
-            // Add enhanced visual feedback
-            if (input) {
-              input.className = input.className.replace(/\b(input-valid|input-invalid|input-loading)\b/g, '').trim();
-              input.classList.add('input-valid');
-            }
+            if (input) input.classList.add('input-valid');
             enableSubmitButtons();
-            
+
             // Auto-hide success message and move focus to next field
             setTimeout(() => {
-                // Move to next empty input (faulty slots if empty)
                 moveToNextEmptyInput();
-            }, 1500);
+            }, 150); // Short delay for smooth UX
         } else {
             // JIG validation failed - RED border and always show error with enhanced styling
             let errorMsg = data.error || data.message || 'Invalid JIG QR ID';
-            
+
             showQrValidationMessage('error', errorMsg);
             setInputErrorStyle();
-            // Add enhanced visual feedback
             if (input) {
-              input.className = input.className.replace(/\b(input-valid|input-invalid|input-loading)\b/g, '').trim();
-              input.classList.add('input-invalid');
+                input.className = input.className.replace(/\b(input-valid|input-invalid|input-loading)\b/g, '').trim();
+                input.classList.add('input-invalid');
             }
             disableSubmitButtons();
-            
+
             // Focus and select only on database validation errors, not format errors
             if (input && errorMsg.includes('does not exist')) {
+                setTimeout(() => {
+                    input.focus();
+                    input.select();
+                }, 100);
+            }
+
+            // --- AUTO-SELECT THE INPUT IF INVALID JIG ID SCANNED ---
+            // If the input is not already focused, focus and select it
+            if (input && document.activeElement !== input) {
                 setTimeout(() => {
                     input.focus();
                     input.select();
@@ -4846,16 +4845,30 @@ function validateJigQrIdInstant(qrId) {
         showQrValidationMessage('error', 'Network error. Please check connection and try again.');
         setInputErrorStyle();
         disableSubmitButtons();
-        
+
         // Focus input on network error
         const input = document.getElementById('modalJigQrId');
         if (input) {
             setTimeout(() => {
                 input.focus();
+                input.select();
             }, 100);
         }
     });
 }
+
+// Helper: auto-select the Jig QR input
+function autoSelectJigInput() {
+    const input = document.getElementById('modalJigQrId');
+    if (input) {
+        setTimeout(() => {
+            input.focus();
+            input.select();
+        }, 100);
+    }
+}
+
+
 
 // Function to get current jig capacity from the modal context
 function getCurrentJigCapacity() {
@@ -4928,19 +4941,45 @@ function focusAtPosition(position = null) {
 
 // Helper function to move to next empty input in order
 function moveToNextEmptyInput() {
+    // 1. If Jig QR is empty, focus there
+    const jigInput = document.getElementById('modalJigQrId');
+    if (jigInput && (!jigInput.value || jigInput.value.trim() === '')) {
+        jigInput.focus();
+        jigInput.select && jigInput.select();
+        return;
+    }
+
+    // 2. If any tray input is empty, focus the first one
+    const trayInputs = document.querySelectorAll('#delinkTrayTable input[type="text"]');
+    for (const input of trayInputs) {
+        if (!input.value || input.value.trim() === '') {
+            input.focus();
+            input.select && input.select();
+            return;
+        }
+    }
+
+    // 3. If any half-filled tray input is empty, focus it
+    const halfTrayInputs = document.querySelectorAll('#halfFilledTraySection input[type="text"]:not([readonly])');
+    for (const input of halfTrayInputs) {
+        if (!input.value || input.value.trim() === '') {
+            input.focus();
+            input.select && input.select();
+            return;
+        }
+    }
+
+    // 4. Fallback: focus next empty main modal field
     const fieldsOrder = [
         'modalFaultySlots',
         'modalEmptySlots',
-        'modalTotalCasesLoaded'
+        'modalLotQty'
     ];
-    
     for (const fieldId of fieldsOrder) {
         const field = document.getElementById(fieldId);
         if (field && (!field.value || field.value.trim() === '')) {
-            setTimeout(() => {
-                field.focus();
-                field.select();
-            }, 100);
+            field.focus();
+            field.select && field.select();
             return;
         }
     }
@@ -5127,9 +5166,9 @@ function disableSubmitButtons() {
     });
 }
 // *** UPDATED: Multi-model optimal distribution using backend API ***
-async function calculateMultiModelOptimalDistribution(lotQuantities, jigCapacity = 0, brokenHooks = 0) {
+async function calculateMultiModelOptimalDistribution(lotQuantities) {
   try {
-    console.log('🔧 Calling backend multi-model distribution API with:', { lotQuantities, jigCapacity, brokenHooks });
+    console.log('🔧 Calling backend multi-model distribution API with:', lotQuantities);
     
     const response = await fetch('/jig_loading/get_multi_model_distribution/', {
       method: 'POST',
@@ -5138,10 +5177,7 @@ async function calculateMultiModelOptimalDistribution(lotQuantities, jigCapacity
         'X-CSRFToken': getCookie('csrftoken')
       },
       body: JSON.stringify({
-        lot_quantities: lotQuantities,
-        jig_capacity: jigCapacity,
-        broken_hooks: brokenHooks,
-        jig_qr_id: document.getElementById('modalJigQrId').value.trim()
+        lot_quantities: lotQuantities
       })
     });
     
@@ -5162,16 +5198,16 @@ async function calculateMultiModelOptimalDistribution(lotQuantities, jigCapacity
 }
 
 // Update the populateDelinkTrayTableMultiModel function:
-async function populateDelinkTrayTableMultiModel(lotQuantities, trayTable, jigCapacity = 0, brokenHooks = 0) {
+async function populateDelinkTrayTableMultiModel(lotQuantities, trayTable) {
   try {
-    console.log('🔧 Populating multi-model delink tray table with quantities:', lotQuantities, 'jigCapacity:', jigCapacity, 'brokenHooks:', brokenHooks);
+    console.log('🔧 Populating multi-model delink tray table with quantities:', lotQuantities);
     
     // *** ENHANCED FIX: Use pre-preserved current table state data ***
     const existingDraftData = window.preservedDraftTrayData || [];
     console.log('🔄 Using preserved current table state data:', existingDraftData.length, 'entries');
     
     // Get optimal distribution from backend
-    const distribution = await calculateMultiModelOptimalDistribution(lotQuantities, jigCapacity, brokenHooks);
+    const distribution = await calculateMultiModelOptimalDistribution(lotQuantities);
     
     console.log('📋 Backend distribution result:', distribution);
     
@@ -5208,8 +5244,7 @@ async function populateDelinkTrayTableMultiModel(lotQuantities, trayTable, jigCa
             value="${trayIdValue}"
             placeholder="${modelForPlaceholder} - Scan Tray ID"
             data-lot-id="${tray.lot_id || ''}"
-            expected_usage="${tray.used_quantity || tray.expected_usage || 0}"
-            data-allocated-qty="${tray.allocated_qty || tray.used_quantity || 0}"
+            data-expected-usage="${tray.used_quantity || tray.expected_usage || 0}"
             data-is-top-tray="${tray.is_top_tray || false}"
             data-original-tray-qty="${tray.original_tray_quantity || tray.tray_quantity || 0}"
             data-from-draft="${tray.from_draft || false}"
@@ -5283,7 +5318,7 @@ function preserveExistingDraftTrayData() {
       existingTrayData.push({
         tray_id: trayId,
         lot_id: input.getAttribute('data-lot-id') || '',
-        expected_usage: parseInt(input.getAttribute('expected_usage') || input.getAttribute('data-expected-usage')) || 0,
+        expected_usage: parseInt(input.getAttribute('data-expected-usage')) || 0,
         original_tray_quantity: parseInt(input.getAttribute('data-original-tray-qty')) || 0,
         from_draft: true,
         row_index: index + 1
@@ -5426,7 +5461,6 @@ function setupFaultySlotHandlerMultiModel(validResults, calculatedLotIdQuantitie
  newFaultySlotInput.addEventListener('input', async function() {
     const faultySlots = parseInt(newFaultySlotInput.value) || 0;
     const jigCapacity = parseInt(document.getElementById('modalJigCapacity').value) || 0;
-    const usableJigCapacity = Math.max(0, jigCapacity - faultySlots);
     
     // *** NEW: FAULTY SLOTS VALIDATION BASED ON JIG CAPACITY ***
     let maxAllowedFaultySlots;
@@ -5468,21 +5502,14 @@ function setupFaultySlotHandlerMultiModel(validResults, calculatedLotIdQuantitie
     if (faultySlots <= 0) {
     // Reset to original values
     emptySlotInput.value = originalEmptySlots;
-    lotQtyInput.value = `0/${jigCapacity}`;  // Reset to full jig capacity
+    lotQtyInput.value = originalLotQty;
     
     // *** FIXED: REBUILD DE-LINK TRAY TABLE WITH ORIGINAL DISTRIBUTION ***
     const trayTable = document.getElementById('delinkTrayTable');
 trayTable.innerHTML = '';
     
-    // Get jig capacity and broken hooks from modal fields with null checks
-    const modalJigCapacityElem = document.getElementById('modalJigCapacity');
-    const modalFaultySlotsElem = document.getElementById('modalFaultySlots');
-    
-    const modalJigCapacity = modalJigCapacityElem ? parseInt(modalJigCapacityElem.value) || 0 : 0;
-    const modalBrokenHooks = modalFaultySlotsElem ? parseInt(modalFaultySlotsElem.value) || 0 : 0;
-    
     console.log('🔄 Resetting to original multi-model quantities:', calculatedLotIdQuantities);
-    await populateDelinkTrayTableMultiModel(calculatedLotIdQuantities, trayTable, modalJigCapacity, modalBrokenHooks);
+    await populateDelinkTrayTableMultiModel(calculatedLotIdQuantities, trayTable);
     
     // Reset half-filled tray table with original distribution
     if (distribution && distribution.half_filled_trays) {
@@ -5494,60 +5521,67 @@ trayTable.innerHTML = '';
     // *** NEW: Update loaded qty after populating trays ***
     updateLoadedQty();
 } else {
-        // *** UPDATE FOR BROKEN HOOKS ***
-        lotQtyInput.value = `0/${usableJigCapacity}`;  // Show effective capacity on right side
-        emptySlotInput.value = usableJigCapacity;      // Empty hooks = effective capacity (since loaded = 0)
+        // Continue with existing multi-model calculation logic...
+        const usableJigCapacity = Math.max(0, jigCapacity - faultySlots);
         
-        // Keep original lot qty for half-filled calculation
-        const newLotQty = originalLotQty;
-        const newEmptySlots = 0; // No empty slots since lot qty > effective capacity
+        console.log(`Multi-model faulty slots calculation:`);
+        console.log(`  Jig capacity: ${jigCapacity}`);
+        console.log(`  Max allowed faulty slots: ${maxAllowedFaultySlots}`);
+        console.log(`  Current faulty slots: ${faultySlots}`);
+        console.log(`  Usable capacity: ${usableJigCapacity}`);
         
-        // Update the fields
-        emptySlotInput.value = newEmptySlots;
-        lotQtyInput.value = `0/${usableJigCapacity}`;
+        // Rest of existing multi-model calculation logic...
+        const newLotQty = Math.min(originalLotQty, usableJigCapacity);
+        const newEmptySlots = Math.max(0, usableJigCapacity - newLotQty);
+      
+      // Update the fields
+      emptySlotInput.value = newEmptySlots;
+      lotQtyInput.value = newLotQty;
+      
+      // Show warning if faulty slots exceed total capacity
+      if (faultySlots > jigCapacity) {
+        showModalMessage('warning', 'Faulty Slots Exceed Capacity', 
+          `${faultySlots} faulty slots cannot be accommodated.`, 
+          { duration: 500 });
+        newFaultySlotInput.value = jigCapacity;
+        return;
+      }
+      
+      // *** CRITICAL: Recalculate distribution with adjusted quantity ***
+      if (newLotQty !== originalLotQty) {
+        console.log('🔄 Recalculating multi-model distribution due to faulty slots');
         
-        // *** CRITICAL: Recalculate distribution with adjusted quantity ***
-        if (newLotQty !== originalLotQty) {
-          console.log('🔄 Recalculating multi-model distribution due to faulty slots');
+        // *** REMOVED: Proportional reduction for multi-model ***
+        // Just update the total, keep original lot quantities
+        
+        // Don't adjust lot quantities, keep original
+        // window.currentLotIdQuantities remains the original
+        
+        // Update delink tray table with original quantities
+        const trayTable = document.getElementById('delinkTrayTable');
+        trayTable.innerHTML = '';
+        
+        try {
+          console.log('🚀 Calling multi-model backend API with original quantities');
+          const adjustedResult = await populateDelinkTrayTableMultiModel(calculatedLotIdQuantities, trayTable);
           
-          // *** REMOVED: Proportional reduction for multi-model ***
-          // Just update the total, keep original lot quantities
-          
-          // Don't adjust lot quantities, keep original
-          // window.currentLotIdQuantities remains the original
-          
-          // Update delink tray table with original quantities
-          const trayTable = document.getElementById('delinkTrayTable');
-          trayTable.innerHTML = '';
-          
-          try {
-            // Get jig capacity and broken hooks from modal fields with null checks
-            const modalJigCapacityElem = document.getElementById('modalJigCapacity');
-            const modalFaultySlotsElem = document.getElementById('modalFaultySlots');
-            
-            const modalJigCapacity = modalJigCapacityElem ? parseInt(modalJigCapacityElem.value) || 0 : 0;
-            const modalBrokenHooks = modalFaultySlotsElem ? parseInt(modalFaultySlotsElem.value) || 0 : 0;
-            
-            console.log('🚀 Calling multi-model backend API with original quantities');
-            const adjustedResult = await populateDelinkTrayTableMultiModel(calculatedLotIdQuantities, trayTable, modalJigCapacity, modalBrokenHooks);
-            
-            // Update half-filled tray table with adjusted distribution
-            if (adjustedResult && adjustedResult.distribution) {
-              populateHalfFilledTrayTableMultiModel(adjustedResult.distribution);
-              console.log('✅ Updated tables with adjusted distribution');
-            } else {
-              console.log('⚠️ No distribution returned, hiding half-filled');
-              populateHalfFilledTrayTableMultiModel({ half_filled_trays: [] });
-            }
-            
-            // *** NEW: Update loaded qty after populating trays ***
-            updateLoadedQty();
-          } catch (error) {
-            console.error('❌ Error recalculating multi-model distribution:', error);
-            showModalMessage('error', 'Calculation Error', 'Failed to recalculate distribution with faulty slots.', { duration: 500 });
+          // Update half-filled tray table with adjusted distribution
+          if (adjustedResult && adjustedResult.distribution) {
+            populateHalfFilledTrayTableMultiModel(adjustedResult.distribution);
+            console.log('✅ Updated tables with adjusted distribution');
+          } else {
+            console.log('⚠️ No distribution returned, hiding half-filled');
+            populateHalfFilledTrayTableMultiModel({ half_filled_trays: [] });
           }
+          
+          // *** NEW: Update loaded qty after populating trays ***
+          updateLoadedQty();
+        } catch (error) {
+          console.error('❌ Error recalculating multi-model distribution:', error);
+          showModalMessage('error', 'Calculation Error', 'Failed to recalculate distribution with faulty slots.', { duration: 500 });
         }
       }
+    }
     
     // Update Add Model button state
     const currentEmptySlots = parseInt(emptySlotInput.value) || 0;
@@ -5698,11 +5732,7 @@ async function clearModalFieldsAfterAddJig() {
       const trayTable = document.getElementById('delinkTrayTable');
 trayTable.innerHTML = '';
       
-      // Get jig capacity and broken hooks for backend API
-      jigCapacity = parseInt(document.getElementById('modalJigCapacity').value) || 0;
-      const brokenHooks = parseInt(document.getElementById('modalFaultySlots').value) || 0;
-      
-      const populationResult = await populateDelinkTrayTableMultiModel(newLotQuantities, trayTable, jigCapacity, brokenHooks);
+      const populationResult = await populateDelinkTrayTableMultiModel(newLotQuantities, trayTable);
       
       // === CRITICAL FIX: Refresh half-filled tray table with multi-model distribution ===
       if (populationResult && populationResult.distribution) {
@@ -5916,6 +5946,8 @@ document.addEventListener('keydown', function(e) {
           trayInput.parentNode.appendChild(successMsg);
           trayInput.style.borderColor = '';
           trayInput.style.backgroundColor = '';
+          trayInput.classList.add('input-valid'); // <-- Add this line
+          updateLoadedQty(); // Update loaded quantity display
 
           // *** FIXED: SIMULATE TAB BEHAVIOR FOR ENTER ***
           if (e.key === 'Enter') {
@@ -6022,7 +6054,9 @@ async function saveJigDetails(options = {}) {
               }
               // Update modal fields if needed
               if (data.display_qty !== undefined) {
-                document.getElementById('modalLotQty').value = data.display_qty;
+                // Set format as 0/lot_qty for new jig after Add Jig
+                const lotQty = data.original_quantity || data.display_qty;
+                document.getElementById('modalLotQty').value = `0/${lotQty}`;
               }
               if (data.jig_capacity !== undefined) {
                 document.getElementById('modalJigCapacity').value = data.jig_capacity;
@@ -6435,9 +6469,6 @@ async function removeModelFromSelection(lotId, modelNo) {
             const emptySlots = Math.max(0, jigCapacity - remainingQty - faultySlots);
             document.getElementById('modalEmptySlots').value = emptySlots;
             
-            // *** FIX: Recalculate loaded qty from actual tray inputs after removal ***
-            updateLoadedQty();
-            
             console.log(`🎯 STATIC Loaded Case Qty: ${originalLoadedQty}, Remaining qty: ${remainingQty}, Empty hooks: ${emptySlots}`);
             
             // Update Add Model button state based on actual empty slots
@@ -6670,12 +6701,11 @@ function preserveCurrentTrayTableState() {
   trayInputs.forEach((input, index) => {
     const trayId = input.value.trim();
     const lotId = input.getAttribute('data-lot-id') || '';
-    const expectedUsage = parseInt(input.getAttribute('expected_usage') || input.getAttribute('data-expected-usage')) || 0;
+    const expectedUsage = parseInt(input.getAttribute('data-expected-usage')) || 0;
     const originalTrayQty = parseInt(input.getAttribute('data-original-tray-qty')) || 0;
     const fromDraft = input.getAttribute('data-from-draft') === 'true';
     
     // Preserve ALL entries (both filled and empty) to maintain structure
-    if (trayId && expectedUsage === 0) expectedUsage = 12; // Default to 12 for scanned trays
     currentTrayData.push({
       tray_id: trayId,
       lot_id: lotId,
@@ -6722,14 +6752,8 @@ if (modal) {
     modal.classList.remove('minimized');
 }
 
-// Load auto-save data with delay
-setTimeout(() => {
-    if (typeof loadAutoSaveData === 'function') {
-        loadAutoSaveData(lotId);
-    } else {
-        console.log('loadAutoSaveData function not available yet');
-    }
-}, 1000);
+// Load auto-save data
+setTimeout(() => loadAutoSaveData(lotId), 1000);
 
 
     // Fetch data from API
@@ -6744,25 +6768,28 @@ setTimeout(() => {
       document.getElementById('modalJigCapacity').value = data.jig_capacity || '';
       document.getElementById('modalFaultySlots').value = 0; // <-- Set default value
 
+        // --- ADD THIS BLOCK ---
+    if (data && typeof data.jig_capacity !== 'undefined') {
+        const jigCapacityInput = document.getElementById('modalJigCapacity');
+        if (jigCapacityInput) {
+            jigCapacityInput.value = data.jig_capacity;
+        }
+    }
+
       const jigCapacity = parseInt(data.jig_capacity) || 0;
-      // Show the loaded case qty as 0/jig_capacity initially
-      document.getElementById('modalLotQty').value = `0/${jigCapacity}`;
-    // In the modal opening script, change the line that sets modalActualLotQty
-    // Find the edit-qty-input value from the table for the current lot
-    const row = document.querySelector(`tr[data-stock-lot-id="${lotId}"]`);
-    const editQtyInput = row ? row.querySelector('.edit-qty-input') : null;
-    const availableQty = editQtyInput ? parseInt(editQtyInput.value) || 0 : 0;
-
-    // Set modalActualLotQty to the static value from edit-qty-input
-    document.getElementById('modalActualLotQty').value = availableQty;      // Empty slots calculation based on jig capacity
-
-    // Empty Slot 
-    document.getElementById('modalEmptySlots').value = jigCapacity - availableQty;
+      const availableQty = parseInt(data.display_qty) || 0;
+      // Show the loaded case qty in format 0/lot_qty for new jig
+      const totalLotQty = data.total_lot_qty || data.original_quantity || availableQty;
+      const currentLoadedQty = data.current_loaded_qty || 0;
+      document.getElementById('modalLotQty').value = `${currentLoadedQty}/${totalLotQty}`;
+      // Empty slots calculation based on what can fit vs. what's actually loaded
+      const loadedQty = Math.min(jigCapacity, availableQty);
+      document.getElementById('modalEmptySlots').value = jigCapacity - loadedQty;
 
       // Add the console.log statements here (right after the calculation)
     console.log('Jig Capacity:', data.jig_capacity);
-    console.log('Available Qty:', availableQty);
-    console.log('Calculated Empty:', jigCapacity);
+    console.log('Loaded Qty:', loadedQty);
+    console.log('Calculated Empty:', jigCapacity - loadedQty);
 
 
 
@@ -6779,9 +6806,12 @@ if (data.draft_data && data.draft_data.has_draft) {
   document.getElementById('modalJigQrId').value = data.draft_data.jig_qr_id || '';
   document.getElementById('modalFaultySlots').value = data.draft_data.faulty_slots || 0;
   document.getElementById('modalEmptySlots').value = data.draft_data.empty_slots || 0;
-  // Loaded Case Qty - Start at 0/jig_capacity, will be updated by updateLoadedQty
-  const jigCapacity = parseInt(data.jig_capacity) || 0;
-  document.getElementById('modalLotQty').value = `0/${jigCapacity}`;
+  //document.getElementById('modalLotQty').value = data.draft_data.total_cases_loaded || 0;
+
+  // Loaded Case Qty - For draft mode, show current loaded/total format
+  const draftLoadedQty = data.draft_data.total_cases_loaded || 0;
+  const originalQty = data.original_quantity || draftLoadedQty;
+  document.getElementById('modalLotQty').value = `${draftLoadedQty}/${originalQty}`;
   
   // Store draft ID for updates
   window.currentDraftId = data.draft_data.draft_id;
@@ -6860,11 +6890,17 @@ if (data.draft_data && data.draft_data.has_draft) {
         // Use display_qty from the enhanced API response
         finalDisplayQty = (data.edited_quantity > 0 ? data.edited_quantity : (data.display_qty || 0));
 
-        // Loaded Case Qty - Start at 0/jig_capacity
+        // Show the actual lot quantity available, not capped by jig capacity
+        //document.getElementById('modalLotQty').value = finalDisplayQty;
+
+        // Loaded Case Qty - For new jig, show 0/lot_qty format
+        const totalLotQty = data.total_lot_qty || data.original_quantity || finalDisplayQty;
+        const currentLoadedQty = data.current_loaded_qty || 0;
+        document.getElementById('modalLotQty').value = `${currentLoadedQty}/${totalLotQty}`;
+        // Calculate Empty Slots based on what can fit vs. what's actually loaded
         const jigCapacity = parseInt(data.jig_capacity) || 0;
-        document.getElementById('modalLotQty').value = finalDisplayQty; // Display static lot qty
-        // Calculate Empty Slots based on jig capacity
-        finalEmptySlots = jigCapacity - finalDisplayQty;
+        const loadedQty = Math.min(finalDisplayQty, jigCapacity);
+        finalEmptySlots = Math.max(0, jigCapacity - loadedQty);
         document.getElementById('modalEmptySlots').value = finalEmptySlots;
         finalFaultySlots = 0;
         
@@ -6997,20 +7033,12 @@ newFaultySlotInput.addEventListener('input', function() {
                 .then(data => {
                     console.log('✅ Received original data for reset:', data);
                     
-                    // Update existing tray inputs with original allocated quantities (preserve scanned values)
+                    // *** REBUILD DE-LINK TRAY TABLE WITH ORIGINAL DATA ***
                     const trayTable = document.getElementById('delinkTrayTable');
-                    const trayInputs = trayTable.querySelectorAll('input[type="text"]');
+                    trayTable.innerHTML = '';
                     
-                    if (data.trays && data.trays.length > 0) {
-                        data.trays.forEach((tray, idx) => {
-                            if (trayInputs[idx]) {
-                                // Update allocated qty but preserve scanned value and validation state
-                                trayInputs[idx].setAttribute('data-allocated-qty', tray.allocated_qty || tray.used_quantity);
-                                trayInputs[idx].setAttribute('data-expected-usage', tray.used_quantity);
-                                trayInputs[idx].setAttribute('data-original-tray-qty', tray.original_tray_quantity || tray.tray_quantity);
-                            }
-                        });
-                    }
+                    // Use the original calculation function
+                    populateDelinkTrayTableFromCalculation(data, trayTable, originalDisplayQty);
                     
                     // *** REBUILD HALF FILLED TRAY TABLE WITH ORIGINAL DATA ***
                     if (data.half_filled_trays && data.show_half_filled_table) {
@@ -7021,9 +7049,6 @@ newFaultySlotInput.addEventListener('input', function() {
                         populateHalfFilledTrayTable([]);
                         console.log('✅ Hidden half filled trays (not needed for original qty)');
                     }
-                    
-                    // Update loaded qty after updating allocated quantities
-                    updateLoadedQty();
                     
                     console.log('✅ Successfully restored original tray distribution');
                 })
@@ -7077,20 +7102,10 @@ newFaultySlotInput.addEventListener('input', function() {
                     .then(data => {
                         console.log('✅ Received recalculated data:', data);
                         
-                        // Update existing tray inputs with new allocated quantities (preserve scanned values)
+                        // Update tray tables with new distribution
                         const trayTable = document.getElementById('delinkTrayTable');
-                        const trayInputs = trayTable.querySelectorAll('input[type="text"]');
-                        
-                        if (data.trays && data.trays.length > 0) {
-                            data.trays.forEach((tray, idx) => {
-                                if (trayInputs[idx]) {
-                                    // Update allocated qty but preserve scanned value and validation state
-                                    trayInputs[idx].setAttribute('data-allocated-qty', tray.allocated_qty || tray.used_quantity);
-                                    trayInputs[idx].setAttribute('data-expected-usage', tray.used_quantity);
-                                    trayInputs[idx].setAttribute('data-original-tray-qty', tray.original_tray_quantity || tray.tray_quantity);
-                                }
-                            });
-                        }
+                      trayTable.innerHTML = '';
+                        populateDelinkTrayTableFromCalculation(data, trayTable, newLotQty);
                         
                         // Update half filled trays
                         if (data.half_filled_trays && data.show_half_filled_table) {
@@ -7099,9 +7114,6 @@ newFaultySlotInput.addEventListener('input', function() {
                         } else {
                             populateHalfFilledTrayTable([]);
                         }
-                        
-                        // Update loaded qty after updating allocated quantities
-                        updateLoadedQty();
                     })
                     .catch(error => console.error('❌ Error recalculating with adjusted qty:', error));
             }
@@ -7129,14 +7141,15 @@ newFaultySlotInput.addEventListener('input', function() {
       const slider = document.getElementById('modelSliderDynamic');
       slider.innerHTML = '';
       
-      let lotIdsToShow = [];
-      if (isDraftMode && data.draft_data && data.draft_data.new_lot_ids && data.draft_data.new_lot_ids.length > 0) {
-        lotIdsToShow = data.draft_data.new_lot_ids;
-      } else if (window.currentLotIds && window.currentLotIds.length > 0) {
-        lotIdsToShow = window.currentLotIds;
-      } else if (currentModalLotId) {
+    // When loading draft or backend data, always use new_lot_ids order for slider
+    let lotIdsToShow = [];
+    if (isDraftMode && data.draft_data && Array.isArray(data.draft_data.new_lot_ids) && data.draft_data.new_lot_ids.length > 0) {
+        lotIdsToShow = [...data.draft_data.new_lot_ids]; // Preserve order from backend/draft
+    } else if (window.currentLotIds && window.currentLotIds.length > 0) {
+        lotIdsToShow = [...window.currentLotIds]; // Use backend order
+    } else if (currentModalLotId) {
         lotIdsToShow = [currentModalLotId];
-      }
+    }
       
       // For each lot_id, fetch model info and add to slider
       await Promise.all(lotIdsToShow.map(async (lotId, idx) => {
@@ -7170,6 +7183,14 @@ newFaultySlotInput.addEventListener('input', function() {
       setTimeout(() => {
         storeOriginalModalData();
       }, 200);
+      
+      // Focus on the Jig ID input after modal loads
+      setTimeout(() => {
+        const jigIdInput = document.getElementById('modalJigQrId');
+        if (jigIdInput) {
+          jigIdInput.focus();
+        }
+      }, 300);
     } catch (error) {
       console.error('Error fetching jig data:', error);
       showModalMessage('error', 'Data Loading Error', 'Failed to load jig data. Please try again.', { duration: 5000 });
@@ -7233,7 +7254,8 @@ function calculateAndPopulateHalfFilledTrays(data, adjustedDisplayQty) {
   }
 }
 
-// Update the populateHalfFilledTrayTable function to show the correct remaining quantity:
+
+// Half Filled Tray Table Population Function
 function populateHalfFilledTrayTable(halfFilledTrays) {
   const table = document.getElementById('halfFilledTrayTable');
   const halfFilledSection = document.getElementById('halfFilledTraySection');
@@ -7265,8 +7287,10 @@ function populateHalfFilledTrayTable(halfFilledTrays) {
     const trayIdInput = document.getElementById('halfFilledTrayId');
     const qtyInput = document.getElementById('halfFilledTrayQty');
     
+    // Inside the if (firstTray) block:
     if (trayIdInput) {
       trayIdInput.placeholder = `Scan remaining tray ID (Expected: ${firstTray.tray_id || 'TOP-TRAY'})`;
+      trayIdInput.value = firstTray.tray_id || 'TOP-TRAY';  // Pre-fill with expected tray_id
       trayIdInput.setAttribute('data-expected-tray-id', firstTray.tray_id || 'TOP-TRAY');
       trayIdInput.setAttribute('data-qty', firstTray.tray_quantity);
       trayIdInput.setAttribute('data-original-qty', firstTray.original_tray_quantity || firstTray.tray_quantity);
@@ -7284,8 +7308,6 @@ function populateHalfFilledTrayTable(halfFilledTrays) {
     console.log('No valid half filled tray found');
   }
 }
-
-
 // *** NEW: Function to populate half filled tray table from draft data ***
 function populateHalfFilledTrayTableFromDraft(draftHalfFilledData) {
   const table = document.getElementById('halfFilledTrayTable');
@@ -7306,6 +7328,8 @@ function populateHalfFilledTrayTableFromDraft(draftHalfFilledData) {
     const qtyInput = document.getElementById('halfFilledTrayQty');
     
     if (trayIdInput) {
+      // FIXED: Set the actual value from saved draft data
+      trayIdInput.value = firstItem.tray_id || '';
       trayIdInput.placeholder = `Scan remaining tray ID (Expected: ${firstItem.tray_id || 'TOP-TRAY'})`;
       trayIdInput.setAttribute('data-expected-tray-id', firstItem.tray_id || 'TOP-TRAY');
       trayIdInput.setAttribute('data-qty', firstItem.tray_quantity || '');
@@ -7313,13 +7337,14 @@ function populateHalfFilledTrayTableFromDraft(draftHalfFilledData) {
       trayIdInput.setAttribute('data-top-tray', 'true');
       trayIdInput.setAttribute('data-lot-id', firstItem.lot_id || '');
       trayIdInput.setAttribute('data-verification', 'true');
+      trayIdInput.setAttribute('data-from-draft', 'true'); // Mark as restored from draft
     }
     
     if (qtyInput) {
       qtyInput.value = firstItem.tray_quantity || '';
     }
     
-    console.log(`Populated draft half filled tray inputs with tray ID: ${firstItem.tray_id}, quantity: ${firstItem.tray_quantity}`);
+    console.log(`✅ Restored draft half filled tray: ID="${firstItem.tray_id}", quantity=${firstItem.tray_quantity}`);
   }
 }
 
@@ -7447,7 +7472,6 @@ trayTable.innerHTML = '';
             placeholder="${modelForPlaceholder} - Scan Tray ID"
             data-lot-id="${tray.lot_id || data.stock_lot_id || currentModalLotId}"
             data-expected-usage="${tray.used_quantity}"
-            data-allocated-qty="${tray.allocated_qty || tray.used_quantity}"
             data-is-top-tray="false"
             data-original-tray-qty="${tray.original_tray_quantity || tray.tray_quantity}"
             data-theoretical="true"
@@ -7645,62 +7669,64 @@ document.addEventListener('input', function(e) {
   }
 });
 
+// Dynamically update Loaded Case Qty based on scanned trays ***
 function updateLoadedQty() {
-    const jigCapacity = parseInt(document.getElementById('modalJigCapacity').value) || 0;
-    const faultySlots = parseInt(document.getElementById('modalFaultySlots').value) || 0;
-    const effectiveCapacity = jigCapacity - faultySlots;  // Effective capacity after broken hooks
-    let totalLoaded = 0;
-    let remainingCapacity = effectiveCapacity;
-    
-    // Get all delink tray inputs (total trays, not just scanned)
-    const delinkInputs = document.querySelectorAll('#delinkTrayTable input[type="text"]');
-    const totalTrays = delinkInputs.length;
-    
-    // Sum up scanned delink trays with dynamic allocation based on remaining capacity
-    const scannedTrays = Array.from(delinkInputs).filter(input => input.value.trim());
-    scannedTrays.forEach(input => {
-        const allocatedQty = parseInt(input.getAttribute('data-allocated-qty')) || 0;
-        // Dynamic calculation: only use what's needed up to remaining capacity
-        const actualContribution = Math.min(allocatedQty, remainingCapacity);
-        totalLoaded += actualContribution;
-        remainingCapacity -= actualContribution;
-        
-        // Update the input's effective contribution for display
-        input.setAttribute('data-effective-qty', actualContribution);
+    // Get all tray inputs in the delink tray table
+    const trayInputs = document.querySelectorAll('#delinkTrayTable input[type="text"]');
+    let loadedQty = 0;
+
+    trayInputs.forEach(input => {
+        // Only count if input is valid (has .input-valid class)
+        if (input.classList.contains('input-valid') && input.value.trim()) {
+            // Get the tray quantity from data attribute or default to tray capacity
+            let qty = parseInt(input.getAttribute('data-qty')) || 0;
+            if (!qty) {
+                // Default to standard tray capacity if no specific quantity found
+                qty = 9; // Standard tray capacity
+            }
+            loadedQty += qty;
+        }
     });
-    
-    // Add half-filled tray if scanned (uses actual quantity, not capacity)
-    const halfTrayInput = document.getElementById('halfFilledTrayId');
-    if (halfTrayInput && halfTrayInput.value.trim()) {
-        const halfTrayQty = parseInt(halfTrayInput.getAttribute('data-qty')) || 0;
-        const actualHalfContribution = Math.min(halfTrayQty, remainingCapacity);
-        totalLoaded += actualHalfContribution;
-        remainingCapacity -= actualHalfContribution;
+
+    // Add half-filled tray quantity if valid
+    const halfTrayInput = document.querySelector('#halfFilledTrayId');
+    const halfTrayQtyInput = document.querySelector('#halfFilledTrayQty');
+    if (halfTrayInput && halfTrayInput.classList.contains('input-valid') && halfTrayInput.value.trim()) {
+        const halfQty = parseInt(halfTrayQtyInput?.value) || 0;
+        loadedQty += halfQty;
     }
-    
-    // Update the Loaded Case Qty display (show effective capacity on right side)
-    const loadedQtyInput = document.getElementById('modalLotQty');
-    if (loadedQtyInput) {
-        loadedQtyInput.value = `${totalLoaded}/${effectiveCapacity}`;
+
+    // Get the total lot quantity (denominator)
+    const lotQtyInput = document.getElementById('modalLotQty');
+    let totalLotQty = 0;
+    if (lotQtyInput) {
+        // Check if value is already in format "x/y"
+        const currentValue = lotQtyInput.value;
+        if (currentValue.includes('/')) {
+            const parts = currentValue.split('/');
+            totalLotQty = parseInt(parts[1]) || 0;
+        } else {
+            // If not in format, use the current value as total
+            totalLotQty = parseInt(currentValue) || 0;
+        }
     }
+
+    // Get jig capacity constraint
+    const jigCapacityInput = document.getElementById('modalJigCapacity');
+    let jigCapacity = parseInt(jigCapacityInput ? jigCapacityInput.value : 0) || 98;
     
-    // Update empty hooks: effective capacity - loaded
-    const emptyHooksInput = document.getElementById('modalEmptySlots');
-    if (emptyHooksInput) {
-        const emptyHooks = Math.max(0, effectiveCapacity - totalLoaded);
-        // Empty Hooks should reflect remaining capacity
-        emptyHooksInput.value = emptyHooks;
+    // Cap loadedQty at minimum of totalLotQty and jig capacity
+    loadedQty = Math.min(loadedQty, totalLotQty, jigCapacity);
+
+    // Update the Loaded Case Qty field with format "loaded/total"
+    if (lotQtyInput) {
+        lotQtyInput.value = `${loadedQty}/${totalLotQty}`;
     }
-    
-    console.log(`Updated Loaded Qty: ${totalLoaded}/${effectiveCapacity}, Effective Capacity: ${effectiveCapacity}, Remaining: ${remainingCapacity}, Scanned Trays: ${scannedTrays.length}/${totalTrays}`);
-    
-    // Log each tray's contribution for debugging
-    scannedTrays.forEach((input, idx) => {
-        const allocatedQty = parseInt(input.getAttribute('data-allocated-qty')) || 0;
-        const effectiveQty = parseInt(input.getAttribute('data-effective-qty')) || 0;
-        console.log(`  Tray ${idx + 1}: allocated=${allocatedQty}, effective=${effectiveQty}`);
-    });
+
+    console.log(`🔧 Updated Loaded Case Qty: ${loadedQty}/${totalLotQty} (Jig capacity: ${jigCapacity})`);
 }
+
+
 // *** NEW FUNCTION: Update info text for half-filled tray ***
 function updateHalfFilledTrayInfo(quantity) {
   const headerElement = document.querySelector('#halfFilledTraySection h6');
@@ -7721,29 +7747,38 @@ function clearHalfFilledTrayInfo() {
   }
 }
 
-// Instant tray validation function
+// Instant tray validation function with improved focus/selection for invalid
 function validateTrayInputInstant(input) {
   const trayId = input.value.trim();
   const lotId = input.getAttribute('data-lot-id') || '';
-  
+
   // Clear previous validation
   clearTrayValidation(input);
-  
+
   if (!trayId) {
     input.classList.add('input-empty');
+    input.removeAttribute('data-qty'); // Remove qty data when empty
+    updateLoadedQty(); // Update loaded qty when input is cleared
     return;
   }
-  
+
   // Basic format validation
   if (trayId.length < 3) {
     input.classList.add('input-invalid');
     showTrayValidation(input, 'error', 'Too short');
+    // Only auto-select if user has typed 9 characters (full tray ID)
+    if (trayId.length === 9) {
+      setTimeout(() => { input.focus(); input.select(); }, 50);
+    }
     return;
   }
-  
+
   if (!/^[A-Z0-9-]+$/i.test(trayId)) {
     input.classList.add('input-invalid');
     showTrayValidation(input, 'error', 'Invalid characters');
+    if (trayId.length === 9) {
+      setTimeout(() => { input.focus(); input.select(); }, 50);
+    }
     return;
   }
 
@@ -7753,32 +7788,115 @@ function validateTrayInputInstant(input) {
     const allInputs = trayTable.querySelectorAll('input[type="text"]');
     const currentLotId = input.getAttribute('data-lot-id');
     let duplicateFound = false;
-    
+
     allInputs.forEach(otherInput => {
-      if (otherInput !== input && 
-          otherInput.value.trim() === trayId && 
-          otherInput.getAttribute('data-lot-id') === currentLotId) {
+      if (
+        otherInput !== input &&
+        otherInput.value.trim() === trayId &&
+        otherInput.getAttribute('data-lot-id') === currentLotId
+      ) {
         duplicateFound = true;
       }
     });
-    
+
     if (duplicateFound) {
       input.classList.add('input-invalid');
       showTrayValidation(input, 'error', 'Duplicate tray ID not allowed for same Lot!');
+      if (trayId.length === 9) {
+        setTimeout(() => { input.focus(); input.select(); }, 50);
+      }
       return;
     }
   }
-  
+
   // Show loading state
   input.classList.add('input-loading');
   showTrayValidation(input, 'loading', 'Validating...');
-  
+
   // Debounced backend validation
   clearTimeout(input.validationTimer);
   input.validationTimer = setTimeout(() => {
-    validateTrayWithBackend(input, trayId, lotId);
+    fetch('/jig_loading/validate_tray_id/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify({
+        tray_id: trayId,
+        lot_id: lotId,
+        is_half_filled: input.closest('#halfFilledTraySection') ? true : false
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        clearTrayValidation(input);
+        if (data.exists && data.lot_match) {
+          if (data.is_new_tray) {
+            showTrayValidation(input, 'success', 'New tray allowed for remaining quantity');
+          } else {
+            showTrayValidation(input, 'success', 'Tray ID is valid');
+          }
+          input.classList.add('input-valid');
+          
+          // Store tray capacity information for loaded qty calculation
+          if (data.tray_capacity) {
+            input.setAttribute('data-qty', data.tray_capacity);
+          } else if (data.tray_quantity) {
+            input.setAttribute('data-qty', data.tray_quantity);
+          } else {
+            // Default tray capacity if not provided by backend
+            input.setAttribute('data-qty', 9); // Standard tray capacity
+          }
+          
+          // Update loaded case qty when tray is validated
+          updateLoadedQty();
+          
+          // Move focus to next empty input automatically
+          setTimeout(() => {
+            const trayInputs = Array.from(document.querySelectorAll('#delinkTrayTable input[type="text"]'));
+            const idx = trayInputs.indexOf(input);
+            let nextEmpty = trayInputs.slice(idx + 1).find(inp => !inp.value.trim());
+            if (!nextEmpty) {
+              // If not found, try half-filled tray input
+              nextEmpty = document.querySelector('#halfFilledTraySection input[type="text"]:not([readonly])');
+              if (nextEmpty && !nextEmpty.value.trim()) {
+                nextEmpty.focus();
+                nextEmpty.select();
+                return;
+              }
+            }
+            if (nextEmpty) {
+              nextEmpty.focus();
+              nextEmpty.select();
+            }
+          }, 150);
+        } else {
+          showTrayValidation(input, 'error', 'Tray ID not found');
+          input.classList.add('input-invalid');
+          input.removeAttribute('data-qty'); // Remove qty data when invalid
+          updateLoadedQty(); // Update loaded qty when tray becomes invalid
+          // Only auto-select if user has typed 9 characters (full tray ID)
+          if (trayId.length === 9) {
+            setTimeout(() => { input.focus(); input.select(); }, 50);
+          }
+        }
+      })
+      .catch(() => {
+        clearTrayValidation(input);
+        input.classList.add('input-invalid');
+        input.removeAttribute('data-qty'); // Remove qty data on error
+        updateLoadedQty(); // Update loaded qty on network error
+        showTrayValidation(input, 'error', 'Network error');
+        if (trayId.length === 9) {
+          setTimeout(() => { input.focus(); input.select(); }, 50);
+        }
+      });
   }, 500);
 }
+
+
+
 
 // Validate tray with backend
 function validateTrayWithBackend(input, trayId, lotId) {
@@ -7804,13 +7922,13 @@ function validateTrayWithBackend(input, trayId, lotId) {
       } else {
         showTrayValidation(input, 'success', 'Tray ID is valid');
       }
-      // *** FIX: Set expected_usage based on allocated quantity from data attribute ***
-      const allocatedQty = input.getAttribute('data-allocated-qty') || '16';
-      input.setAttribute('expected_usage', allocatedQty);
-      updateLoadedQty();
-    } else {
-      showTrayValidation(input, 'error', 'Tray ID not found');
-    }
+    input.classList.add('input-valid');
+    updateLoadedQty(); // <-- Add this line
+    // Move focus to next empty input automatically
+    setTimeout(() => {
+        // ...existing code...
+    }, 150);
+}
   })
   .catch(() => {
     clearTrayValidation(input);
@@ -7835,9 +7953,6 @@ function validateHalfTrayInputInstant(input) {
   if (expectedId && trayId === expectedId) {
     input.classList.add('input-valid');
     showTrayValidation(input, 'success', 'Expected tray ID');
-    const allocatedQty = input.getAttribute('data-allocated-qty') || input.getAttribute('data-qty') || '16';
-    input.setAttribute('expected_usage', allocatedQty);
-    updateLoadedQty();
     return;
   }
   
@@ -7851,10 +7966,6 @@ function validateHalfTrayInputInstant(input) {
       clearTrayValidation(input);
       input.classList.add('input-valid');
       showTrayValidation(input, 'success', 'Alternative tray ID accepted');
-      // *** FIX: Set expected_usage based on actual quantity ***
-      const allocatedQty = input.getAttribute('data-allocated-qty') || input.getAttribute('data-qty') || '16';
-      input.setAttribute('expected_usage', allocatedQty);
-      updateLoadedQty();
     }, 300);
   } else {
     input.classList.add('input-invalid');
@@ -7947,9 +8058,6 @@ function showTrayValidation(input, type, message) {
 
 // *** UPDATED: Enhanced modal data collection for multi-model ***
 function collectModalData() {
-  // *** CRITICAL: Ensure loaded qty is calculated with correct effective quantities before collection ***
-  updateLoadedQty();
-  
   const jigQrId = document.getElementById('modalJigQrId').value.trim();
   const faultySlots = parseInt(document.getElementById('modalFaultySlots').value) || 0;
   const emptySlots = parseInt(document.getElementById('modalEmptySlots').value) || 0;
@@ -8025,17 +8133,7 @@ if ((hasMultipleModels && window.currentLotIdQuantities) || isDraftMode) {
     trayInputs.forEach((trayInput, index) => {
       const trayId = trayInput.value.trim();
       const lotId = trayInput.getAttribute('data-lot-id') || '';
-      
-      // *** FIX: Use effective quantity from dynamic allocation, not full expected_usage ***
-      let expectedUsage = parseInt(trayInput.getAttribute('data-effective-qty')) || 0;
-      
-      // Fallback to allocated qty if effective qty not set (for compatibility)
-      if (expectedUsage === 0) {
-        expectedUsage = parseInt(trayInput.getAttribute('data-allocated-qty') || 
-                                trayInput.getAttribute('expected_usage') || 
-                                trayInput.getAttribute('data-expected-usage')) || 0;
-      }
-      
+      const expectedUsage = parseInt(trayInput.getAttribute('data-expected-usage')) || 0;
       const isBackendOptimal = trayInput.getAttribute('data-backend-optimal') === 'true';
       
       console.log(`Delink Tray ${index + 1}: ID="${trayId}", Lot="${lotId}", Expected=${expectedUsage}, BackendOptimal=${isBackendOptimal}`);
@@ -8053,15 +8151,49 @@ if ((hasMultipleModels && window.currentLotIdQuantities) || isDraftMode) {
 
   // *** ENHANCED: Better half-filled tray data collection for multi-model ***
   const halfFilledTrayData = [];
-  const halfFilledTable = document.getElementById('halfFilledTrayTable');
   
   console.log('=== ENHANCED HALF-FILLED TRAY COLLECTION (WITH DRAFT SUPPORT) ===');
+  
+  // FIRST: Check the main half-filled tray inputs (single model or manual scan case)
+  const mainTrayIdInput = document.getElementById('halfFilledTrayId');
+  const mainTrayQtyInput = document.getElementById('halfFilledTrayQty');
+  
+  if (mainTrayIdInput && mainTrayQtyInput) {
+    const mainTrayId = mainTrayIdInput.value.trim();
+    const mainQty = parseInt(mainTrayQtyInput.value) || 0;
+    const mainLotId = mainTrayIdInput.getAttribute('data-lot-id') || '';
+    const mainIsTopTray = mainTrayIdInput.getAttribute('data-top-tray') === 'true';
+    const mainOriginalQty = parseInt(mainTrayIdInput.getAttribute('data-original-qty')) || mainQty;
+    
+    console.log(`Main Half-Filled Input: ID="${mainTrayId}", Qty=${mainQty}, Lot="${mainLotId}", IsTopTray=${mainIsTopTray}, OriginalQty=${mainOriginalQty}`);
+    
+    // If user manually entered a tray ID or there's quantity, include it
+    if (mainTrayId || mainQty > 0) {
+      halfFilledTrayData.push({
+        tray_id: mainTrayId,
+        tray_quantity: mainQty,
+        original_tray_quantity: mainOriginalQty,
+        lot_id: mainLotId,
+        model_no: '', // Will be determined by backend
+        is_top_tray: mainIsTopTray,
+        is_multi_model: false,
+        from_draft: false,
+        row_index: 1
+      });
+      console.log('✅ Added main half-filled tray input to collection');
+    } else {
+      console.log('❌ Main half-filled inputs are empty');
+    }
+  }
+  
+  // SECOND: Check the half-filled table (multi-model or complex cases)
+  const halfFilledTable = document.getElementById('halfFilledTrayTable');
   
   if (halfFilledTable) {
     const trayIdInputs = halfFilledTable.querySelectorAll('input[type="text"]');
     const qtyInputs = halfFilledTable.querySelectorAll('input[type="number"]');
     
-    console.log('Found half-filled inputs:', trayIdInputs.length, 'qty inputs:', qtyInputs.length);
+    console.log('Found half-filled table inputs:', trayIdInputs.length, 'qty inputs:', qtyInputs.length);
     
     for (let i = 0; i < Math.min(trayIdInputs.length, qtyInputs.length); i++) {
       const trayInput = trayIdInputs[i];
@@ -8076,7 +8208,7 @@ if ((hasMultipleModels && window.currentLotIdQuantities) || isDraftMode) {
       const fromDraft = trayInput.getAttribute('data-from-draft') === 'true';
       const originalQty = parseInt(trayInput.getAttribute('data-original-qty')) || qty;
       
-      console.log(`Half-Filled ${i + 1}: ID="${trayId}", Qty=${qty}, Lot="${lotId}", Model="${modelNo}", MultiModel=${isMultiModel}, FromDraft=${fromDraft}`);
+      console.log(`Half-Filled Table ${i + 1}: ID="${trayId}", Qty=${qty}, Lot="${lotId}", Model="${modelNo}", MultiModel=${isMultiModel}, FromDraft=${fromDraft}`);
       
       if (trayId || qty > 0) {
         halfFilledTrayData.push({
@@ -8088,7 +8220,7 @@ if ((hasMultipleModels && window.currentLotIdQuantities) || isDraftMode) {
           is_top_tray: isTopTray,
           is_multi_model: isMultiModel,
           from_draft: fromDraft,
-          row_index: i + 1
+          row_index: halfFilledTrayData.length + 1 // Adjust index to account for main input
         });
       }
     }
@@ -8424,7 +8556,11 @@ validResults.forEach((r, index) => {
     const faultySlots = parseInt(document.getElementById('modalFaultySlots').value) || 0;
     const actualEmptySlots = Math.max(0, originalJigCapacity - actualTotalQty - faultySlots);
     document.getElementById('modalEmptySlots').value = actualEmptySlots;
-    document.getElementById('modalLotQty').value = `${actualTotalQty}/${originalJigCapacity}`;
+    
+    // *** FIXED: Show current loaded cases in jig, not total lot quantities ***
+    // For multi-model, show total loaded in jig / jig capacity
+    const currentLoadedInJig = originalJigCapacity - actualEmptySlots - faultySlots;
+    document.getElementById('modalLotQty').value = `${currentLoadedInJig}/${originalJigCapacity}`;
 
     // Store values for faulty slots calculation
     window.originalCombinedEmptySlots = actualEmptySlots;
@@ -8481,17 +8617,10 @@ if (isMultiModel) {
   // Store for populateDelinkTrayTableMultiModel to use
   window.preservedDraftTrayData = currentTrayData;
   
-  // Get jig capacity and broken hooks from modal fields with null checks
-  const modalJigCapacityElem = document.getElementById('modalJigCapacity');
-  const modalFaultySlotsElem = document.getElementById('modalFaultySlots');
-  
-  const modalJigCapacity = modalJigCapacityElem ? parseInt(modalJigCapacityElem.value) || 0 : 0;
-  const modalBrokenHooks = modalFaultySlotsElem ? parseInt(modalFaultySlotsElem.value) || 0 : 0;
-  
   // Use multi-model backend API with proportionally capped quantities
   console.log('📊 Calling multi-model backend API with quantities:', calculatedLotIdQuantities);
   
-  const populationResult = await populateDelinkTrayTableMultiModel(calculatedLotIdQuantities, trayTable, modalJigCapacity, modalBrokenHooks);
+  const populationResult = await populateDelinkTrayTableMultiModel(calculatedLotIdQuantities, trayTable);
   
   // *** ENHANCED: Restore tray IDs in correct order based on lot matching ***
   const allInputs = document.querySelectorAll('#delinkTrayTable input[type="text"]');
@@ -8522,6 +8651,9 @@ if (isMultiModel) {
     
     if (targetInput && preservedTray.tray_id) {
       targetInput.value = preservedTray.tray_id;
+      // *** FIX: Mark restored trays as valid so they count towards loaded qty ***
+      targetInput.classList.add('input-valid');
+      targetInput.classList.remove('input-invalid', 'input-loading', 'input-empty');
       console.log(`✅ Restored tray ID "${preservedTray.tray_id}" to lot ${preservedTray.lot_id} at position ${index}`);
     } else if (preservedTray.tray_id) {
       console.log(`⚠️ Could not restore tray ID "${preservedTray.tray_id}" - no matching input found`);
@@ -8566,7 +8698,7 @@ if (isMultiModel) {
         if (faultySlots <= 0) {
           // Reset to original values
           emptySlotInput.value = window.originalCombinedEmptySlots;
-          lotQtyInput.value = `0/${jigCapacity}`;  // Reset to full jig capacity
+          lotQtyInput.value = window.originalCombinedLotQty;
           
           // *** ENHANCED: Reset half filled trays for single model ***
           const filteredCombinedHalfFilledTrays = filterToTopTrayOnly(combinedHalfFilledTrays);
@@ -8643,7 +8775,7 @@ if (isMultiModel) {
             
             // Update the fields
             emptySlotInput.value = newEmptySlots;
-            lotQtyInput.value = `0/${usableJigCapacity}`;
+            lotQtyInput.value = newLotQty;
 
             // NEW: Recalculate tray distribution with adjusted quantity
             if (newLotQty !== window.originalCombinedLotQty) {
@@ -8852,13 +8984,11 @@ tbody.querySelectorAll('tr').forEach(function(row) {
     // const isExcludedStatus = batchStatus === 'Released' || batchStatus === 'Draft';
 // const isExcludedStatus = batchStatus === 'Yet to Release' || batchStatus === 'Released' || batchStatus === 'Draft';
 // Fix for left over rows during "Add Model" - only exclude 'Released' status
-const isExcludedStatus = batchStatus === 'Released';
+const isExcludedStatus = batchStatus === 'Released' || batchStatus === 'Draft';
     if (isExcludedStatus) {
       // Hide rows with excluded batch statuses
       row.style.display = 'none';
-      if (checkbox) {
-        checkbox.style.display = 'none';
-      }
+      if (checkbox) checkbox.checked = false;
       excludedByBatchStatus++;
       return; // Skip further processing for this row
     }
@@ -10266,7 +10396,9 @@ function saveModalData(lotId) {
         delink_rows: delinkTrayData.length,
         half_filled_rows: halfFilledTrayData.length,
         empty_delink_rows: delinkTrayData.filter(t => t.is_empty).length,
-        empty_half_filled_rows: halfFilledTrayData.filter(t => t.is_empty).length
+        empty_half_filled_rows: halfFilledTrayData.filter(t => t.is_empty).length,
+        // Enhanced debug: show actual half-filled data
+        half_filled_debug: halfFilledTrayData
     });
     
     fetch('/jig_loading/autosave/', {
@@ -10299,7 +10431,7 @@ function collectDelinkTrayData() {
         trayData.push({
             tray_id: input.value.trim() || '', // Save empty string if no value
             lot_id: input.getAttribute('data-lot-id') || '',
-            expected_usage: parseInt(input.getAttribute('expected_usage') || input.getAttribute('data-expected-usage')) || 0,
+            expected_usage: parseInt(input.getAttribute('data-expected-usage')) || 0,
             row_index: index + 1,
             is_empty: !input.value.trim() // Flag to identify empty rows
         });
@@ -10310,28 +10442,86 @@ function collectDelinkTrayData() {
 }
 
 function collectHalfFilledTrayData() {
-    const halfData = [];
-    const trayInputs = document.querySelectorAll('#halfFilledTrayTable input[type="text"]');
-    const qtyInputs = document.querySelectorAll('#halfFilledTrayTable input[type="number"]');
+  console.log('🔧 Collecting half-filled tray data...');
+  
+  const trayIdInput = document.getElementById('halfFilledTrayId');
+  const qtyInput = document.getElementById('halfFilledTrayQty');
+  const halfFilledSection = document.getElementById('halfFilledTraySection');
+  
+  // Enhanced Debug: Log ALL possible attributes and values
+  console.log('🔍 ENHANCED Debug - Complete half-filled section state:');
+  console.log('  Section exists:', !!halfFilledSection);
+  console.log('  Section visible:', halfFilledSection ? halfFilledSection.style.display !== 'none' : false);
+  console.log('  Section display style:', halfFilledSection ? halfFilledSection.style.display : 'N/A');
+  
+  if (trayIdInput) {
+    console.log('  TrayId Input - value:', `"${trayIdInput.value}"`);
+    console.log('  TrayId Input - value.trim():', `"${trayIdInput.value.trim()}"`);
+    console.log('  TrayId Input - placeholder:', `"${trayIdInput.placeholder}"`);
+    console.log('  TrayId Input - data-expected-tray-id:', `"${trayIdInput.getAttribute('data-expected-tray-id')}"`);
+    console.log('  TrayId Input - data-lot-id:', `"${trayIdInput.getAttribute('data-lot-id')}"`);
+    console.log('  TrayId Input - data-qty:', `"${trayIdInput.getAttribute('data-qty')}"`);
+    console.log('  TrayId Input - data-original-qty:', `"${trayIdInput.getAttribute('data-original-qty')}"`);
+    console.log('  TrayId Input - data-top-tray:', `"${trayIdInput.getAttribute('data-top-tray')}"`);
+  } else {
+    console.log('  TrayId Input: NOT FOUND');
+  }
+  
+  if (qtyInput) {
+    console.log('  Qty Input - value:', `"${qtyInput.value}"`);
+    console.log('  Qty Input - parseInt(value):', parseInt(qtyInput.value));
+  } else {
+    console.log('  Qty Input: NOT FOUND');
+  }
+  
+  // PRIORITY 1: Check if user manually entered a tray ID (highest priority)
+  if (trayIdInput && trayIdInput.value && trayIdInput.value.trim()) {
+    const trayData = {
+      tray_id: trayIdInput.value.trim(),
+      tray_quantity: qtyInput ? parseInt(qtyInput.value) || 0 : 0,
+      lot_id: trayIdInput.getAttribute('data-lot-id') || '',
+      is_top_tray: trayIdInput.getAttribute('data-top-tray') === 'true',
+      original_tray_quantity: trayIdInput.getAttribute('data-original-qty') ? parseInt(trayIdInput.getAttribute('data-original-qty')) || 0 : 0
+    };
     
-    // Always save all rows, including empty ones
-    const maxRows = Math.max(trayInputs.length, qtyInputs.length);
-    for (let i = 0; i < maxRows; i++) {
-        const trayInput = trayInputs[i];
-        const qtyInput = qtyInputs[i];
-        
-        halfData.push({
-            tray_id: trayInput ? trayInput.value.trim() : '',
-            tray_quantity: qtyInput ? (parseInt(qtyInput.value) || 0) : 0,
-            lot_id: trayInput ? (trayInput.getAttribute('data-lot-id') || '') : '',
-            model_no: trayInput ? (trayInput.getAttribute('data-model-no') || '') : '',
-            row_index: i + 1,
-            is_empty: trayInput ? !trayInput.value.trim() && !parseInt(qtyInput?.value || 0) : true
-        });
+    console.log('✅ PRIORITY 1: Found half-filled tray data from manual input:', trayData);
+    return [trayData];
+  } else {
+    console.log('❌ PRIORITY 1: No manual input found - trayIdInput exists:', !!trayIdInput, 'has value:', !!(trayIdInput && trayIdInput.value), 'value length:', trayIdInput ? trayIdInput.value.length : 0);
+  }
+  
+  // PRIORITY 2: Check if section is visible and has calculated data with valid expectedTrayId (not REMAINING-PARTIAL)
+  if (halfFilledSection && halfFilledSection.style.display !== 'none') {
+    const expectedTrayId = trayIdInput ? trayIdInput.getAttribute('data-expected-tray-id') : null;
+    const expectedQty = qtyInput ? parseInt(qtyInput.value) || 0 : 0;
+    
+    console.log('🔍 PRIORITY 2 Debug - Calculated data check:');
+    console.log('  expectedTrayId:', `"${expectedTrayId}"`);
+    console.log('  expectedQty:', expectedQty);
+    console.log('  expectedTrayId valid check:', expectedTrayId && expectedTrayId !== 'REMAINING-PARTIAL' && expectedTrayId !== 'TOP-TRAY');
+    
+    // Only use expectedTrayId if it's a real tray ID (not REMAINING-PARTIAL placeholder)
+    if (expectedTrayId && expectedTrayId !== 'REMAINING-PARTIAL' && expectedTrayId !== 'TOP-TRAY' && expectedQty > 0) {
+      const calculatedTrayData = {
+        tray_id: expectedTrayId,
+        tray_quantity: expectedQty,
+        lot_id: trayIdInput ? trayIdInput.getAttribute('data-lot-id') || '' : '',
+        is_top_tray: true,
+        original_tray_quantity: trayIdInput ? parseInt(trayIdInput.getAttribute('data-original-qty')) || expectedQty : expectedQty,
+        is_expected: true // Flag to indicate this is calculated/expected data
+      };
+      
+      console.log('✅ PRIORITY 2: Found calculated half-filled tray data:', calculatedTrayData);
+      return [calculatedTrayData];
+    } else {
+      console.log('❌ PRIORITY 2: Calculated data not valid - expectedTrayId is placeholder or empty');
     }
-    
-    console.log(`Collected ${halfData.length} half-filled tray rows (including empty)`);
-    return halfData;
+  } else {
+    console.log('❌ PRIORITY 2: Section not visible or doesn\'t exist');
+  }
+  
+  console.log('❌ FINAL: No valid half-filled tray data found - returning empty array');
+  return [];
 }
 
 // ENHANCED: Add instant validation for all tray inputs in delink section
@@ -10369,48 +10559,46 @@ document.addEventListener('change', function(e) {
     }
 });
 
-// Load auto-save data - SIMPLIFIED AND ROBUST
+// Load auto-save data - FIXED LOGIC
 async function loadAutoSaveData(lotId) {
-    if (!lotId) {
-        console.log('No lotId provided for auto-save loading');
-        return;
-    }
-
     try {
-        console.log('Loading auto-save data for lot:', lotId);
-        const response = await fetch(`/jig_loading/autosave/${lotId}/`);
-
-        if (!response.ok) {
-            console.log('Auto-save fetch failed:', response.status);
+        // SMART FIX: Skip auto-save if draft data is already loaded
+        if (window.currentDraftId) {
+            console.log('Draft data already loaded - skipping auto-save restoration');
             return;
         }
-
+        
+        console.log('Loading auto-save data for lot:', lotId);
+        const response = await fetch(`/jig_loading/autosave/${lotId}/`);
         const result = await response.json();
-
+        
         if (result.success && result.data) {
-            console.log('Found auto-save data, applying...');
-
-            // Simple restoration - just set the jig QR if available
-            if (result.data.jig_qr_id) {
-                const jigInput = document.getElementById('modalJigQrId');
-                if (jigInput) {
-                    jigInput.value = result.data.jig_qr_id;
-                    // Validate after a short delay
-                    setTimeout(() => {
-                        if (typeof validateJigQrIdInstant === 'function') {
-                            validateJigQrIdInstant(result.data.jig_qr_id);
-                        }
-                    }, 500);
+            console.log('Found auto-save data:', result.data);
+            
+            const currentFaultySlots = parseInt(document.getElementById('modalFaultySlots')?.value) || 0;
+            const savedFaultySlots = parseInt(result.data.faulty_slots) || 0;
+            
+            console.log('Auto-save restoration check:', { currentFaultySlots, savedFaultySlots });
+            
+            if (currentFaultySlots === 0 && savedFaultySlots > 0) {
+                console.log('*** BLOCKING auto-save restoration: User reset from constrained state - using fresh calculation instead ***');
+                
+                if (result.data.jig_qr_id) {
+                    document.getElementById('modalJigQrId').value = result.data.jig_qr_id;
+                    if (typeof validateJigQrId === 'function') {
+                        setTimeout(() => validateJigQrId(result.data.jig_qr_id), 300);
+                    }
                 }
+                return;
             }
-
-            console.log('Auto-save data loaded successfully');
+            
+            console.log('✅ Auto-save restoration ALLOWED - proceeding with full restoration');
+            await populateModalFromAutoSave(result.data);
         } else {
             console.log('No auto-save data found for lot:', lotId);
         }
     } catch (error) {
-        console.log('Auto-save load failed (non-critical):', error.message);
-        // Don't throw - this is not a critical error
+        console.log('Auto-save load failed:', error);
     }
 }
 // *** ALSO FIX: Update the populateModalFromAutoSave function to remove duplicate blocking logic ***
@@ -10424,6 +10612,13 @@ async function populateModalFromAutoSave(data) {
             setTimeout(() => validateJigQrId(data.jig_qr_id), 300);
         }
     }
+
+    // ...restore other fields...
+    setTimeout(() => {
+        moveToNextEmptyInput();
+    }, 100);
+
+
     if (data.faulty_slots !== undefined) document.getElementById('modalFaultySlots').value = data.faulty_slots;
     if (data.empty_slots !== undefined) document.getElementById('modalEmptySlots').value = data.empty_slots;
     if (data.total_cases_loaded !== undefined) document.getElementById('modalLotQty').value = data.total_cases_loaded;
@@ -10610,7 +10805,7 @@ trayTable.innerHTML = '';
                         value="${tray.tray_id || ''}"
                         placeholder="${modelForPlaceholder} - Scan Tray ID"
                         data-lot-id="${tray.lot_id || ''}"
-                        expected_usage="${tray.expected_usage || 0}"
+                        data-expected-usage="${tray.expected_usage || 0}"
                         data-is-empty="${tray.is_empty || false}"
                         style="width:100%; border:none; background:transparent;" />
                 </div>
@@ -10858,11 +11053,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 setTimeout(() => {
-                    if (typeof loadAutoSaveData === 'function') {
-                        loadAutoSaveData(lotId);
-                    } else {
-                        console.log('loadAutoSaveData function not available yet');
-                    }
+                    loadAutoSaveData(lotId);
                 }, 1200); // Increased delay to ensure modal is fully loaded
             }
         });
@@ -11021,18 +11212,6 @@ document.addEventListener("DOMContentLoaded", function () {
       setTimeout(unlockParentActions, 200);
     });
   }
-
-  // Check for selected_lots in URL to open modal
-  const urlParams = new URLSearchParams(window.location.search);
-  const selectedLots = urlParams.get('selected_lots');
-  if (selectedLots) {
-    const lotIds = selectedLots.split(',');
-    const firstLot = lotIds[0];
-    const btn = document.querySelector(`a.open-jig-modal-btn[data-stock-lot-id="${firstLot}"]`);
-    if (btn) {
-      btn.click();
-    }
-  }
 });
 </script>
 
@@ -11075,6 +11254,7 @@ document.addEventListener("DOMContentLoaded", function() {
       if (data.valid) {
         showQrValidationMessage('success', data.message);
         enableSubmitButtons();
+        
       } else {
         showQrValidationMessage('error', data.error || 'Invalid Jig QR ID');
         disableSubmitButtons();
@@ -11134,11 +11314,11 @@ let addedModels = []; // [{lotId, qty, ...}]
 
 // Call this when modal opens
 function openJigModal(data) {
-  staticLoadedCaseQty = 0; // Loaded qty starts at 0
+  staticLoadedCaseQty = data.display_qty || data.lot_qty || 0; // Use backend value, never change
   addedModels = [];
-  document.getElementById('modalActualLotQty').value = data.display_qty || 0; // Set lot qty
-  document.getElementById('modalJigCapacity').value = data.jig_capacity || 0; // Set jig capacity
-  document.getElementById('modalLotQty').value = `0/${data.jig_capacity || 0}`; // Set loaded qty to 0/capacity
+  // Set initial format as 0/lot_qty
+  const lotQty = data.original_quantity || data.display_qty || data.lot_qty || 0;
+  document.getElementById('modalLotQty').value = `0/${lotQty}`; // Set initial 0/lot_qty format
   updateEmptyHooksDisplay();
 }
 
@@ -11158,201 +11338,31 @@ function removeModel(lotId) {
 
 // Update Loaded Case Qty display (STATIC, never changes)
 function updateLoadedCaseQtyDisplay() {
-  const jigCapacity = parseInt(document.getElementById('modalJigCapacity').value) || 0;
-  document.getElementById('modalLotQty').value = `${staticLoadedCaseQty}/${jigCapacity}`;
+  document.getElementById('modalLotQty').value = staticLoadedCaseQty;
 }
 
 // Update Empty Hooks display (dynamic)
 function updateEmptyHooksDisplay() {
-    const jigCapacity = parseInt(document.getElementById('modalJigCapacity').value) || 0;
-    const loadedQty = staticLoadedCaseQty;  // Starts at 0
-    const brokenHooks = parseInt(document.getElementById('modalFaultySlots').value) || 0;  // Broken/Buildup Hooks
-    const emptyHooks = jigCapacity - loadedQty - brokenHooks;
-    document.getElementById('modalEmptySlots').value = emptyHooks;
+  const jigCapacity = parseInt(document.getElementById('modalJigCapacity').value) || 0;
+  const usedQty = addedModels.reduce((sum, m) => sum + m.qty, 0);
+  const emptyHooks = jigCapacity - staticLoadedCaseQty - usedQty;
+  document.getElementById('modalEmptySlots').value = emptyHooks >= 0 ? emptyHooks : 0;
 }
 
-// Remove S.No and Tray ID columns at any scenario
-function updateDelinkTable() {
-  const trayTable = document.getElementById('delinkTrayTable');
-  if (!trayTable) return;
-  trayTable.innerHTML = '';
-  // For each added model, add a tray input (no S.No/Tray ID columns)
-  addedModels.forEach(model => {
-    trayTable.innerHTML += `
-      <input type="text"
-        class="tray-input"
-        placeholder="${model.lotId} - Scan Tray ID"
-        data-lot-id="${model.lotId}"
-        style="width:100%; margin-bottom:8px; border-radius:6px; border:1px solid #e0e7ef; padding:6px 8px;" />
-    `;
-  });
+// *** FIXED: Update loaded qty to count only validated trays ***
+function updateLoadedQty() {
+    const validTrayInputs = document.querySelectorAll('#delinkTrayTable input[type="text"].input-valid');
+    let loadedCount = 0;
+    
+    validTrayInputs.forEach(input => {
+        loadedCount += 12; // Each valid tray holds 12 cases
+    });
+    
+    const jigCapacity = parseInt(document.getElementById('modalJigCapacity').value) || 98;
+    document.getElementById('modalLotQty').value = `${loadedCount}/${jigCapacity}`;
+    console.log(`🔧 Updated Loaded Case Qty: ${loadedCount}/${jigCapacity}`);
 }
 </script>
-
-
-
-<!-- Enhanced tray input validation with instant feedback and 9-digit limit -->
-<script nonce="{{ csp_nonce }}">
-document.addEventListener("DOMContentLoaded", function() {
-  // Function to add instant validation to tray inputs
-  function addInstantTrayValidation(input) {
-    if (!input) return;
-    
-    // Set maxlength to 9 digits
-    input.setAttribute('maxlength', '9');
-    
-    // Add input event listener for instant validation
-    input.addEventListener('input', function(e) {
-      const trayId = input.value.trim();
-      const lotId = input.getAttribute('data-lot-id') || '';
-      
-      // Clear previous validation
-      clearTrayValidation(input);
-      
-      if (!trayId) {
-        input.classList.add('input-empty');
-        return;
-      }
-      
-      // Basic format validation
-      if (trayId.length < 3) {
-        input.classList.add('input-invalid');
-        showTrayValidation(input, 'error', 'Too short');
-        return;
-      }
-      
-      if (!/^[A-Z0-9-]+$/i.test(trayId)) {
-        input.classList.add('input-invalid');
-        showTrayValidation(input, 'error', 'Invalid characters');
-        return;
-      }
-      
-      // Show loading state
-      input.classList.add('input-loading');
-      showTrayValidation(input, 'loading', 'Validating...');
-      
-      // Debounced backend validation
-      clearTimeout(input.validationTimer);
-      input.validationTimer = setTimeout(() => {
-        validateTrayWithBackend(input, trayId, lotId);
-      }, 300);
-    });
-    
-    // Keep existing Enter/Tab validation for additional actions if needed
-    input.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        // Existing logic can remain here if needed
-      }
-    });
-  }
-  
-  // Apply instant validation to existing tray inputs
-  document.querySelectorAll('#delinkTrayTable input[type="text"]').forEach(addInstantTrayValidation);
-  
-  // Also apply to dynamically created inputs (e.g., when adding models)
-  const observer = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-      mutation.addedNodes.forEach(function(node) {
-        if (node.nodeType === 1 && node.matches('#delinkTrayTable input[type="text"]')) {
-          addInstantTrayValidation(node);
-        }
-        // Also check child elements
-        if (node.nodeType === 1) {
-          node.querySelectorAll('#delinkTrayTable input[type="text"]').forEach(addInstantTrayValidation);
-        }
-      });
-    });
-  });
-  
-  observer.observe(document.body, { childList: true, subtree: true });
-  
-  // Helper functions (ensure these are defined elsewhere in the script)
-  function clearTrayValidation(input) {
-    input.className = input.className.replace(/\b(input-valid|input-invalid|input-loading|input-empty)\b/g, '').trim();
-    const existing = input.closest('div').parentNode.querySelector('.tray-validation-msg-wrapper');
-    if (existing) existing.remove();
-  }
-  
-  function showTrayValidation(input, type, message) {
-    // Existing showTrayValidation function logic
-    // Ensure it provides green for valid, red for invalid
-    if (type === 'success') {
-      input.classList.add('input-valid');
-    } else if (type === 'error') {
-      input.classList.add('input-invalid');
-    }
-    // ... rest of the function
-  }
-  
-  function validateTrayWithBackend(input, trayId, lotId) {
-    // Existing backend validation logic
-    fetch('/jig_loading/validate_tray_id/', {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': getCookie('csrftoken')
-      },
-      body: JSON.stringify({ tray_id: trayId, lot_id: lotId })
-    })
-    .then(res => res.json())
-    .then(data => {
-      clearTrayValidation(input);
-      if (data.exists && data.lot_match) {
-        input.classList.add('input-valid');
-        showTrayValidation(input, 'success', 'Valid tray ID');
-        
-        // NEW: Automatically move to next empty tray input
-        moveToNextEmptyTrayInput(input);
-      } else {
-        input.classList.add('input-invalid');
-        showTrayValidation(input, 'error', data.error || 'Invalid tray ID');
-      }
-    })
-    .catch(() => {
-      clearTrayValidation(input);
-      input.classList.add('input-invalid');
-      showTrayValidation(input, 'error', 'Network error');
-    });
-  }
-  
-  // NEW: Function to move to the next empty tray input
-  function moveToNextEmptyTrayInput(currentInput) {
-    const allTrayInputs = Array.from(document.querySelectorAll('#delinkTrayTable input[type="text"]'));
-    const currentIndex = allTrayInputs.indexOf(currentInput);
-    
-    if (currentIndex === -1) return;
-    
-    // Find the next empty input
-    for (let i = currentIndex + 1; i < allTrayInputs.length; i++) {
-      const nextInput = allTrayInputs[i];
-      if (!nextInput.value.trim()) {
-        // Found empty input, focus and select it
-        setTimeout(() => {
-          nextInput.focus();
-          nextInput.select();
-        }, 100); // Small delay to ensure validation completes
-        return;
-      }
-    }
-    
-    // If no empty input found after current, wrap around to the first empty one
-    for (let i = 0; i < currentIndex; i++) {
-      const nextInput = allTrayInputs[i];
-      if (!nextInput.value.trim()) {
-        setTimeout(() => {
-          nextInput.focus();
-          nextInput.select();
-        }, 100);
-        return;
-      }
-    }
-    
-    // If all inputs are filled, stay on current input
-    console.log('All tray inputs are filled');
-  }
-});
-</script>
-
-
 
 {% endblock %}
 {% endblock content %}
