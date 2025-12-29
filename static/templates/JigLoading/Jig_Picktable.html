@@ -149,7 +149,6 @@
   max-height: 60px;
 }
 
-/* Remove the hiding of ui-hidden elements in delink grid - let them scroll with others */
 /* Remove the hiding of ui-hidden elements in delink grid - let them scroll with others and be editable */
 .delink-grid > .ui-hidden {
   display: block !important; /* Ensure visible */
@@ -5168,7 +5167,33 @@ function disableSubmitButtons() {
 // *** UPDATED: Multi-model optimal distribution using backend API ***
 async function calculateMultiModelOptimalDistribution(lotQuantities) {
   try {
+    // Calculate remaining jig capacity
+    const existingTrayInputs = document.querySelectorAll('#delinkTrayTable input[type="text"]');
+    let allocatedQty = 0;
+    existingTrayInputs.forEach(input => {
+        const expectedUsage = parseInt(input.getAttribute('data-expected-usage')) || 0;
+        allocatedQty += expectedUsage;
+    });
+    const jigCapacity = getCurrentJigCapacity() || 98;
+    const remainingCapacity = Math.max(0, jigCapacity - allocatedQty);
+    console.log(`Allocated qty: ${allocatedQty}, Jig capacity: ${jigCapacity}, Remaining: ${remainingCapacity}`);
+    
+    // Adjust lotQuantities to not exceed remaining capacity
+    const adjustedLotQuantities = {};
+    let totalAdjusted = 0;
+    for (const [lotId, qty] of Object.entries(lotQuantities)) {
+        const adjustedQty = Math.min(qty, remainingCapacity - totalAdjusted);
+        adjustedLotQuantities[lotId] = Math.max(0, adjustedQty);
+        totalAdjusted += adjustedQty;
+    }
+    lotQuantities = adjustedLotQuantities;
+    
     console.log('🔧 Calling backend multi-model distribution API with:', lotQuantities);
+    
+    // Get current jig capacity from modal
+    const brokenHooks = parseInt(document.getElementById('modalBrokenHooks')?.value || '0');
+    
+    console.log('📊 Jig capacity:', remainingCapacity, 'Broken hooks:', brokenHooks);
     
     const response = await fetch('/jig_loading/get_multi_model_distribution/', {
       method: 'POST',
@@ -5177,7 +5202,9 @@ async function calculateMultiModelOptimalDistribution(lotQuantities) {
         'X-CSRFToken': getCookie('csrftoken')
       },
       body: JSON.stringify({
-        lot_quantities: lotQuantities
+        lot_quantities: lotQuantities,
+        jig_capacity: remainingCapacity,
+        broken_hooks: brokenHooks
       })
     });
     
@@ -5224,37 +5251,75 @@ async function populateDelinkTrayTableMultiModel(lotQuantities, trayTable) {
     console.log(`✅ Found ${distribution.delink_trays.length} delink trays to populate`);
     
     // CRITICAL FIX: Merge existing draft data with new distribution
-    const mergedTrayData = mergeDraftWithNewDistribution(existingDraftData, distribution.delink_trays);
+    let mergedTrayData = mergeDraftWithNewDistribution(existingDraftData, distribution.delink_trays);
     console.log('🔀 Merged tray data:', mergedTrayData);
-    
-    // Populate table with merged data
-    mergedTrayData.forEach((tray, index) => {
-      const modelForPlaceholder = tray.plating_stk_no || getModelForLot(tray.lot_id) || 'Model';
-      const isPreservedData = tray.is_preserved === true;
-      const trayIdValue = tray.tray_id || ''; // Use actual tray_id value (can be empty)
-      const statusText = isPreservedData ? 'Preserved from current table' : 'New optimal distribution';
-      
-      console.log(`Adding row ${index + 1}: ${modelForPlaceholder} - ${isPreservedData ? 'PRESERVED' : 'NEW'} - TrayID: "${trayIdValue}"`);
-      
-      trayTable.innerHTML += `
-        
-        <div>
-          <input type="text"
-            class="${tray.lot_id === window.currentLotIds[0] ? 'primary-input' : 'new-input'}"
-            value="${trayIdValue}"
-            placeholder="${modelForPlaceholder} - Scan Tray ID"
-            data-lot-id="${tray.lot_id || ''}"
-            data-expected-usage="${tray.used_quantity || tray.expected_usage || 0}"
-            data-is-top-tray="${tray.is_top_tray || false}"
-            data-original-tray-qty="${tray.original_tray_quantity || tray.tray_quantity || 0}"
-            data-from-draft="${tray.from_draft || false}"
-            data-is-preserved="${isPreservedData}"
-            data-backend-optimal="true"
-            title="${statusText}: ${tray.used_quantity || tray.expected_usage} pieces"
-            style="width:100%; border:none; background:transparent; ${isPreservedData && trayIdValue ? 'border: 1px solid #28a745; background: #f8fff8;' : ''}" />
-        </div>
-      `;
+
+    // --- HIDE LAST TRAY INPUT FOR LAST LOT IF HALF-FILLED TRAY SECTION ENABLED ---
+    const halfFilledTrays = distribution.half_filled_trays || [];
+    const lotOrder = Object.keys(distribution.lot_distributions || {});
+    const lastLotId = lotOrder[lotOrder.length - 1];
+    let lastTrayIdToHide = null;
+    if (halfFilledTrays.length > 0 && lastLotId) {
+      // Find all trays for the last lot
+      const traysForLastLot = mergedTrayData.filter(tray => tray.lot_id === lastLotId);
+      if (traysForLastLot.length > 0) {
+        // Mark the last tray for the last lot to be hidden
+        lastTrayIdToHide = traysForLastLot[traysForLastLot.length - 1].tray_id;
+      }
+    }
+
+    // Group trays by plating_stk_no
+    const groupedTrays = {};
+    mergedTrayData.forEach(tray => {
+      const key = tray.plating_stk_no || getModelForLot(tray.lot_id) || 'Unknown';
+      if (!groupedTrays[key]) groupedTrays[key] = [];
+      groupedTrays[key].push(tray);
     });
+    
+    // Populate table with grouped data
+    let html = '';
+    for (const platingStkNo in groupedTrays) {
+      const trays = groupedTrays[platingStkNo];
+      const totalTrays = trays.length;
+      const totalQty = trays.reduce((sum, t) => sum + (t.used_quantity || t.expected_usage || 0), 0);
+      html += `<div class="delink-grid">`;
+      trays.forEach((tray, index) => {
+        const isPreservedData = tray.is_preserved === true;
+        const trayIdValue = tray.tray_id || '';
+        const statusText = isPreservedData ? 'Preserved from current table' : 'New optimal distribution';
+        // Hide the last tray input for the last lot if needed
+        let hideStyle = '';
+        if (
+          lastTrayIdToHide &&
+          tray.lot_id === lastLotId &&
+          tray.tray_id === lastTrayIdToHide &&
+          index === trays.length - 1
+        ) {
+          hideStyle = 'display:none;';
+        }
+        html += `
+          <div style="display: flex; flex-direction: column; align-items: stretch; min-width: 170px; max-width: 180px; margin: 0 4px 8px 0; ${hideStyle}">
+            <input type="text"
+              class="${tray.lot_id === window.currentLotIds[0] ? 'primary-input' : 'new-input'}"
+              value="${trayIdValue}"
+              placeholder="${platingStkNo} - Scan Tray ID"
+              data-lot-id="${tray.lot_id || ''}"
+              data-expected-usage="${tray.used_quantity || tray.expected_usage || 0}"
+              data-is-top-tray="${tray.is_top_tray || false}"
+              data-original-tray-qty="${tray.original_tray_quantity || tray.tray_quantity || 0}"
+              data-from-draft="${tray.from_draft || false}"
+              data-is-preserved="${isPreservedData}"
+              data-backend-optimal="true"
+              title="${statusText}: ${tray.used_quantity || tray.expected_usage} pieces"
+              style="width:100%; border:none; background:transparent; ${isPreservedData && trayIdValue ? 'border: 1px solid #28a745; background: #f8fff8;' : ''}" />
+            <small style="margin-top:2px; color:#028084; font-size:12px; font-weight:500; text-align:left;">${platingStkNo} - Tray ${index+1} of ${totalTrays} (${tray.used_quantity || tray.expected_usage || 0} pcs)</small>
+          </div>
+        `;
+      });
+      html += '</div>';
+    }
+    
+    trayTable.innerHTML = html;
     
     // Add summary info
     if (distribution.total_delink_qty > 0) {

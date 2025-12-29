@@ -1115,10 +1115,12 @@ def get_stock_model_data(lot_id):
         print(f"Error in get_stock_model_data for lot {lot_id}: {e}")
         return None, False, 0, 9, None
 
+
 def generate_optimal_tray_distribution_by_capacity(required_qty, tray_capacity, lot_id, available_tray_ids=None, force_original_qty=None):
     """
     Generate optimal tray distribution using ACTUAL tray quantities from database
-    Smart logic: Only use trays where you can consume their full available quantity
+    Smart logic: Only use trays where you can consume their full available quantity.
+    Do NOT include the half-filled tray in the main tray list; handle it in backend only.
     """
     trays_needed = []
     if required_qty <= 0 or tray_capacity <= 0:
@@ -1154,8 +1156,7 @@ def generate_optimal_tray_distribution_by_capacity(required_qty, tray_capacity, 
         print("No actual tray data found, using theoretical distribution")
         # Fallback to old logic if no tray data
         full_trays = required_qty // tray_capacity
-        remainder = required_qty % tray_capacity
-        
+        # remainder = required_qty % tray_capacity  # Not needed for main tray list
         for i in range(full_trays):
             tray_id = f"TRAY-{i+1:03d}"
             trays_needed.append({
@@ -1170,40 +1171,18 @@ def generate_optimal_tray_distribution_by_capacity(required_qty, tray_capacity, 
                 'rejected_tray': False,
                 'delink_tray': False,
             })
-            
-        if remainder > 0 and is_processing_full_qty:
-            tray_id = f"TRAY-{full_trays+1:03d}"
-            trays_needed.append({
-                'tray_id': tray_id,
-                'tray_quantity': tray_capacity,
-                'used_quantity': remainder,
-                'original_tray_quantity': tray_capacity,
-                'lot_id': lot_id,
-                'is_complete': False,
-                'is_top_tray': True,
-                'theoretical': True,
-                'rejected_tray': False,
-                'delink_tray': False,
-            })
-        
+        # Do NOT add the half-filled tray here
         return trays_needed
 
     # Use actual tray quantities for distribution with smart logic
     total_used = 0
-    
     for i, (tray_id, actual_qty) in enumerate(actual_tray_data):
-        # Use full available quantity from each tray (capped by tray_capacity)
         usable_from_tray = min(actual_qty, tray_capacity)
-        
-        # Smart logic: Check if adding this tray creates an artificial partial
-        # Skip if we can't use the tray's full available quantity and it would exceed needs
         if total_used + usable_from_tray > required_qty:
-            # Only proceed if this tray is already partial (actual_qty < tray_capacity)
-            if actual_qty >= tray_capacity:
-                print(f"✗ Skipping {tray_id}: would create artificial partial ({usable_from_tray} from {actual_qty} available)")
-                break
-        
-        # Add tray to delink (sequential processing from top tray)
+            usable_from_tray = required_qty - total_used
+            # Only add if this is a full tray
+            if usable_from_tray < tray_capacity:
+                break  # Do not add the half-filled tray here
         trays_needed.append({
             'tray_id': tray_id,
             'tray_quantity': tray_capacity,
@@ -1216,20 +1195,16 @@ def generate_optimal_tray_distribution_by_capacity(required_qty, tray_capacity, 
             'rejected_tray': False,
             'delink_tray': False,
         })
-        
         total_used += usable_from_tray
-        status = "complete" if usable_from_tray == tray_capacity else "partial"
-        print(f"✓ Delink tray {i+1}: {tray_id} using {usable_from_tray}/{tray_capacity} pieces ({status})")
+        if total_used >= required_qty:
+            break
 
-    # Calculate remaining after the loop
-    remaining_not_used = required_qty - total_used
-    if remaining_not_used > 0:
-        print(f"✗ Remainder {remaining_not_used} to be handled manually (optimal: {total_used} pieces)")
-
+    # Do NOT add the half-filled tray here
     total_distributed = sum(tray['used_quantity'] for tray in trays_needed)
     print(f"Final delink distribution: {len(trays_needed)} trays totaling {total_distributed} pieces")
 
     return trays_needed
+
 
 
 # Half Filled Tray / Top Tray to be Scan: (Single Model)
@@ -1546,6 +1521,11 @@ def generate_multi_model_optimal_distribution(lot_quantities_dict, tray_capacity
         for lot_id, lot_data in all_lot_data.items():
             lot_trays = [t for t in selected_trays if t['lot_id'] == lot_id]
             lot_allocated = sum(t['allocated_qty'] for t in lot_trays)
+            
+            # FIXED: Use simulated allocation if no actual trays were allocated
+            if lot_allocated == 0 and lot_id in lot_allocations:
+                lot_allocated = lot_allocations[lot_id]
+            
             original_required = lot_data['required_qty']
             
             print(f"FINAL LOT SUMMARY: Lot {lot_id}")
@@ -1571,6 +1551,32 @@ def generate_multi_model_optimal_distribution(lot_quantities_dict, tray_capacity
                 }
                 lot_delink_trays.append(tray_data)
                 print(f"  - Tray {i+1}: {tray_data['tray_id']} - Used: {tray_data['used_quantity']}")
+            
+            # FIXED: Create theoretical trays for simulated allocations when no actual trays exist
+            if len(lot_trays) == 0 and lot_allocated > 0:
+                tray_capacity = lot_data['tray_capacity']
+                # Only show full trays visually - remainder handled in half-filled
+                full_trays_only = lot_allocated // tray_capacity
+                remainder = lot_allocated % tray_capacity
+                
+                print(f"THEORETICAL TRAYS: Lot {lot_id} - Allocated: {lot_allocated}, Tray Capacity: {tray_capacity}")
+                print(f"THEORETICAL DISTRIBUTION: Full Trays to Show: {full_trays_only}, Remainder (backend only): {remainder}")
+                
+                for i in range(full_trays_only):
+                    tray_data = {
+                        'tray_id': f"{lot_data['plating_stk_no']}-THEO-{i+1:03d}",
+                        'tray_quantity': tray_capacity,
+                        'used_quantity': tray_capacity,
+                        'original_tray_quantity': tray_capacity,
+                        'lot_id': lot_id,
+                        'plating_stk_no': lot_data['plating_stk_no'],
+                        'is_complete': True,
+                        'is_top_tray': False,
+                        'theoretical': True,
+                        'actual_tray_id': f"THEO-{i+1:03d}"
+                    }
+                    lot_delink_trays.append(tray_data)
+                    print(f"  - Theoretical Tray {i+1}: {tray_data['tray_id']} - Used: {tray_data['used_quantity']}")
             
             # Calculate remaining pieces for this lot
             lot_under_allocated = original_required - lot_allocated
@@ -1599,7 +1605,27 @@ def generate_multi_model_optimal_distribution(lot_quantities_dict, tray_capacity
             
             # Add to combined results
             result['delink_trays'].extend(lot_delink_trays)
-            result['total_delink_qty'] += lot_allocated
+            # DON'T re-add to total_delink_qty here as it's already set correctly above
+        
+        # Move partial trays to half_filled_trays
+        partial_trays = [tray for tray in result['delink_trays'] if tray['used_quantity'] < tray['tray_quantity']]
+        for tray in partial_trays:
+            result['delink_trays'].remove(tray)
+            result['half_filled_trays'].append({
+                'tray_id': tray['tray_id'] + '-REMAINING' if tray['tray_id'] else 'REMAINING',
+                'tray_quantity': tray['used_quantity'],
+                'original_tray_quantity': tray['original_tray_quantity'],
+                'is_top_tray': tray['is_top_tray'],
+                'lot_id': tray['lot_id'],
+                'plating_stk_no': tray['plating_stk_no'],
+                'theoretical': tray['theoretical'],
+                'is_multi_model': True,
+                'verification_required': True,
+                'allocated_qty': tray['used_quantity']
+            })
+        
+        # Update total_delink_qty
+        result['total_delink_qty'] = sum(tray['used_quantity'] for tray in result['delink_trays'])
         
         # Half-filled trays are already added during allocation for the last lot
         print(f"✅ Multi-model half-filled trays: {len(result['half_filled_trays'])} total")

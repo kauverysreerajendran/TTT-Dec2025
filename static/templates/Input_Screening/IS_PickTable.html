@@ -3986,6 +3986,8 @@ function handleDraftSave() {
    });
 </script>
 
+
+
 <!-- ✅ SCRIPT 5: Button Handlers and Modal Controls -->
 <script nonce="{{ csp_nonce }}">
    document.addEventListener("DOMContentLoaded", function () {
@@ -3999,94 +4001,90 @@ function handleDraftSave() {
    if (validateBtn && validateInput) {
      validateBtn.addEventListener("click", function () {
        if (validateBtn.disabled) return;
-   
-       // ✅ NEW: Show "Please Scan" indicator
+
+       // ✅ Show "Please Scan" indicator
        if (pleaseScanIndicator) {
          pleaseScanIndicator.style.display = "inline-block";
        }
-   
-       // ✅ NEW: Check if validation mode is already active
+
+       // ✅ Only add the validation column if not already present
        const modal = document.getElementById("trayScanModal_DayPlanning");
        const detailsDiv = document.getElementById("trayScanDetails_DayPlanning");
-       
-       // ✅ First time clicking - proceed with normal setup
-       validateInput.value = "";
+       if (modal && detailsDiv && typeof modal.buildTableHTML === "function") {
+         // Only add validation column if not already present (by checking for a unique marker)
+         if (!detailsDiv.innerHTML.includes('tray-verified-indicator')) {
+           detailsDiv.innerHTML = modal.buildTableHTML(true);
+         }
+       }
+
+       validateInput.focus();
        if (errorMessage) {
          errorMessage.style.display = "none";
        }
-       
+
        // Change button to active state
        validateBtn.style.background = "#e8f5e8";
        validateBtn.style.borderColor = "#4caf50";
        validateBtn.style.color = "#2e7d32";
-       
-       // Add the validation column to the table (only first time)
-       if (modal && detailsDiv && modal.buildTableHTML) {
-         detailsDiv.innerHTML = modal.buildTableHTML(true);
-       }
-       
-       validateInput.focus();
      });
    }
    
-// ✅ REDO BUTTON HANDLER
-const redoBtn = document.getElementById("trayQtyRedoBtn");
-if (redoBtn && validateInput) {
-  redoBtn.addEventListener('click', async function () {
-    // 1. Call backend to reset verification for this lot
-    const modal = document.getElementById("trayScanModal_DayPlanning");
-    const lotId = modal && modal.stockLotId ? modal.stockLotId : (window.getCurrentLotId && window.getCurrentLotId());
-    if (!lotId) return;
+   // ✅ REDO BUTTON HANDLER
+   const redoBtn = document.getElementById("trayQtyRedoBtn");
+   if (redoBtn && validateInput) {
+     redoBtn.addEventListener('click', async function () {
+       // 1. Call backend to reset verification for this lot
+       const modal = document.getElementById("trayScanModal_DayPlanning");
+       const lotId = modal && modal.stockLotId ? modal.stockLotId : (window.getCurrentLotId && window.getCurrentLotId());
+       if (!lotId) return;
 
-    // Disable redo button to prevent double clicks
-    redoBtn.disabled = true;
+       // Disable redo button to prevent double clicks
+       redoBtn.disabled = true;
 
-    try {
-      // Call backend to reset verification
-      await fetch('/inputscreening/reset_tray_verification_for_lot/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': (window.getCookie && window.getCookie('csrftoken')) || ''
-        },
-        body: JSON.stringify({ lot_id: lotId })
-      });
+       try {
+         // Call backend to reset verification
+         await fetch('/inputscreening/reset_tray_verification_for_lot/', {
+           method: 'POST',
+           headers: {
+             'X-CSRFToken': (window.getCookie && window.getCookie('csrftoken')) || ''
+           },
+           body: JSON.stringify({ lot_id: lotId })
+         });
 
-      // 2. Fetch updated verification status
-      const verifyResp = await fetch(`/inputscreening/get_tray_verification_status/?lot_id=${encodeURIComponent(lotId)}`);
-      const verifyResult = await verifyResp.json();
-      let verificationData = {};
-      if (verifyResult.success) {
-        verificationData = verifyResult.verification_data;
-      }
+         // 2. Fetch updated verification status
+         const verifyResp = await fetch(`/inputscreening/get_tray_verification_status/?lot_id=${encodeURIComponent(lotId)}`);
+         const verifyResult = await verifyResp.json();
+         let verificationData = {};
+         if (verifyResult.success) {
+           verificationData = verifyResult.verification_data;
+         }
 
-      // 3. Update modal's verificationData and rebuild table
-      if (modal) {
-        modal.verificationData = verificationData;
-        // Rebuild the table to reflect "Not verified" status
-        if (typeof modal.buildTableHTML === "function") {
-          const detailsDiv = document.getElementById("trayScanDetails_DayPlanning");
-          if (detailsDiv) {
-            detailsDiv.innerHTML = modal.buildTableHTML(false);
-          }
-        }
-      }
+         // 3. Update modal's verificationData and rebuild table
+         if (modal) {
+           modal.verificationData = verificationData;
+           // Rebuild the table to reflect "Not verified" status
+           if (typeof modal.buildTableHTML === "function") {
+             const detailsDiv = document.getElementById("trayScanDetails_DayPlanning");
+             if (detailsDiv) {
+               detailsDiv.innerHTML = modal.buildTableHTML(false);
+             }
+           }
+         }
 
-      // 4. Visually update all status indicators to "Not verified"
-      document.querySelectorAll('.tray-verified-indicator').forEach(function (el) {
-        el.textContent = '⏳ Not Verified';
-        el.classList.remove('verified');
-        el.classList.add('not-verified');
-      });
+         // 4. Visually update all status indicators to "Not verified"
+         document.querySelectorAll('.tray-verified-indicator').forEach(function (el) {
+           el.textContent = '⏳ Not Verified';
+           el.classList.remove('verified');
+           el.classList.add('not-verified');
+         });
 
-    } catch (err) {
-      console.error('Redo failed:', err);
-    } finally {
-      redoBtn.disabled = false;
-    }
-  });
-}
-   
+       } catch (err) {
+         console.error('Redo failed:', err);
+       } finally {
+         redoBtn.disabled = false;
+       }
+     });
+   }
    
      // ✅ QTY INPUT CHANGE HANDLER
      document.addEventListener('input', function (e) {
@@ -4138,7 +4136,7 @@ if (redoBtn && validateInput) {
            validateBtn.style.color = "#023E4DCC";
          }
          
-         // ✅ NEW: Hide "Please Scan" indicator when modal is closed
+         // ✅ Hide "Please Scan" indicator when modal is closed
          const pleaseScanIndicator = document.getElementById("pleaseScanIndicator");
          if (pleaseScanIndicator) {
            pleaseScanIndicator.style.display = "none";
@@ -4148,6 +4146,9 @@ if (redoBtn && validateInput) {
 
     });
 </script>
+
+
+
 
 <!--Accept functionality-->
 <script nonce="{{csp_nonce}}">
@@ -5567,26 +5568,7 @@ window.loadDraftDataIntoForm = function(draftData) {
    // Update total display
    document.getElementById('rejection-total-qty').textContent = finalTotal;
    
-   // Always recalculate the sum from all rejection-qty-input fields
-   const lotRejectionCheckbox = document.getElementById('batchRejection');
-   if (lotRejectionCheckbox) {
-     let totalQty = 0;
-     document.querySelectorAll('.rejection-qty-input').forEach(function(input) {
-       const val = parseInt(input.value, 10) || 0;
-       totalQty += val;
-     });
-     if (window.currentLotQty && totalQty === window.currentLotQty) {
-       if (!lotRejectionCheckbox.checked) {
-         lotRejectionCheckbox.checked = true;
-         lotRejectionCheckbox.dispatchEvent(new Event('change'));
-       }
-     } else {
-       if (lotRejectionCheckbox.checked) {
-         lotRejectionCheckbox.checked = false;
-         lotRejectionCheckbox.dispatchEvent(new Event('change'));
-       }
-     }
-   }
+
    });
    });
    
@@ -13577,51 +13559,6 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 
-<script>
-// === Auto Lot Rejection Checkbox Logic ===
-document.addEventListener('DOMContentLoaded', function() {
-  // Update these selectors to match your actual input IDs/names
-  const lotQtyInput = document.querySelector('[name="lot_qty"], #lot_qty, .lot-qty');
-  const totalQtyInput = document.querySelector('[name="total_qty"], #total_qty, .total-qty');
-  const rejInputs = [
-    document.querySelector('[name="R01"], #R01, .rej-r01'),
-    document.querySelector('[name="R02"], #R02, .rej-r02'),
-    document.querySelector('[name="R03"], #R03, .rej-r03')
-  ];
-  const lotRejCheckbox = document.querySelector('[name="lot_rejection"], #lot_rejection, .lot-rejection-checkbox');
-  const lotRejSection = document.querySelector('#lot-rejection-section, .lot-rejection-section');
 
-  function getQty(input) {
-    if (!input) return 0;
-    let val = input.value;
-    return val ? parseInt(val, 10) || 0 : 0;
-  }
-
-  function checkLotRejection() {
-    const lotQty = getQty(lotQtyInput) || getQty(totalQtyInput);
-    const rejSum = rejInputs.reduce((sum, inp) => sum + getQty(inp), 0);
-    if (lotQty > 0 && rejSum === lotQty) {
-      if (lotRejCheckbox && !lotRejCheckbox.checked) {
-        lotRejCheckbox.checked = true;
-        // Optionally trigger change event if needed by other logic
-        lotRejCheckbox.dispatchEvent(new Event('change'));
-      }
-      // Scroll to Lot Rejection section if present
-      if (lotRejSection) {
-        lotRejSection.scrollIntoView({behavior: 'smooth', block: 'center'});
-      }
-    }
-  }
-
-  // Attach listeners to rejection inputs
-  rejInputs.forEach(function(inp) {
-    if (inp) {
-      inp.addEventListener('input', checkLotRejection);
-    }
-  });
-  // Also check on page load in case values are pre-filled
-  checkLotRejection();
-});
-</script>
 
 {% endblock %} {% endblock content %}
