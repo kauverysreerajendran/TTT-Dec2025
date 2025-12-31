@@ -1525,29 +1525,37 @@ def generate_multi_model_optimal_distribution(lot_quantities_dict, tray_capacity
         leftover = all_lot_data[last_lot_id]['original_qty'] - last_allocated
         print(f"📉 LEFTOVER FOR LAST LOT (deduction): {leftover} pieces (last lot original {all_lot_data[last_lot_id]['original_qty']} - allocated {last_allocated})")
         
-            
-            
-        # FIX: Only show half-filled tray if leftover > 0 and partial_qty > 0
-        # FIX: Only show half-filled tray if leftover > 0 and partial_qty > 0
         if leftover > 0:
             tray_capacity = all_lot_data[last_lot_id]['tray_capacity']
-            partial_qty = leftover % tray_capacity  # <-- FIXED LINE
+            partial_qty = leftover % tray_capacity  # FIXED: Use modulo for remainder
+            full_trays_from_leftover = leftover // tray_capacity
+            
+            print(f"LEFTOVER CALCULATION: Total Leftover: {leftover} pieces")
+            print(f"LEFTOVER DISTRIBUTION: Last Lot {last_lot_id} - Tray Capacity: {tray_capacity}")
+            print(f"LEFTOVER BREAKDOWN: Full Trays: {full_trays_from_leftover}, Partial Remainder: {partial_qty}")
+            
+            # Only add half-filled tray if there's a true partial remainder
             if partial_qty > 0:
+                # Deduct broken hooks from partial qty if needed
+                adjusted_partial_qty = max(0, partial_qty - broken_hooks)
+                print(f"PARTIAL TRAY ADJUSTMENT: Original Partial: {partial_qty}, After Broken Hooks Deduction: {adjusted_partial_qty}")
+                
                 half_filled_tray = {
-                    'tray_id': "REMAINING-PARTIAL",
-                    'tray_quantity': partial_qty,
-                    'original_tray_quantity': tray_capacity,
+                    'tray_id': f"{all_lot_data[last_lot_id]['plating_stk_no']}-REMAINING",
+                    'tray_quantity': adjusted_partial_qty,  # Now correctly matches your cal (e.g., 5)
+                    'original_tray_quantity': all_lot_data[last_lot_id]['tray_capacity'],
                     'is_top_tray': True,
                     'lot_id': last_lot_id,
-                    'theoretical': True
+                    'plating_stk_no': all_lot_data[last_lot_id]['plating_stk_no'],
+                    'theoretical': True,
+                    'is_multi_model': True,
+                    'verification_required': True,
+                    'allocated_qty': last_allocated
                 }
-                result['half_filled_trays'] = [half_filled_tray]
+                result['half_filled_trays'].append(half_filled_tray)
+                print(f"HALF-FILLED TRAY CREATED: {half_filled_tray['tray_id']} - Quantity: {adjusted_partial_qty} pieces")
             else:
-                result['half_filled_trays'] = []
-        else:
-            result['half_filled_trays'] = []
-            print(f"HALF-FILLED TRAY CREATED: {half_filled_tray['tray_id']} - Quantity: {partial_qty} pieces")
-
+                print(f"NO HALF-FILLED TRAY: No partial remainder after distribution")
 
         # NEW: expose leftover metadata so frontend can preserve the leftover in the PICK table
         result['leftover_total'] = partial_qty if leftover > 0 else 0  # Match the partial quantity

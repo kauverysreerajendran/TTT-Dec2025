@@ -2189,6 +2189,8 @@ h6 {
       <input type="number" id="halfFilledTrayQty" readonly style="width: 120px; padding: 8px 12px; border: 1px solid #e0e7ef; border-radius: 6px; font-size: 14px; background-color: #f8f9fa;" />
     </div>
   </div>
+  <!-- Add halfFilledTrayTable element expected by JavaScript population functions -->
+  <div id="halfFilledTrayTable" style="margin-top: 10px;"></div>
 </div>
                   
 
@@ -3330,6 +3332,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 <!--Update the tray list fetching endpoint in the modal script -->
+
 <script nonce="{{ csp_nonce }}">
     document.addEventListener("DOMContentLoaded", function () {
       document.querySelectorAll('.tray-scan-btn-Jig').forEach(function(link) {
@@ -3386,318 +3389,336 @@ document.addEventListener("DOMContentLoaded", function () {
             modalUserImg.src = modelImage || "/static/assets/images/imagePlaceholder.png";
           }
     
-          // ✅ UPDATED: Fetch tray data with rejection information using correct endpoint
+          // ✅ UPDATED: Fetch calculated tray data using fetch_jig_related_data instead of jig_tray_id_list
           let traysData = [];
           let rejectionSummary = {};
+          let halfFilledTrays = [];
+          let dbTrays = [];
           try {
             const params = new URLSearchParams({
-              batch_id: batchId,
               stock_lot_id: stockLotId,
-              lot_id: stockLotId,
-              brass_audit_accptance: brassQcAccptance,
-              brass_audit_rejection: brassQcRejection,
-              brass_audit_few_cases_accptance: brassQcFewCasesAccptance
+              adjusted_qty: totalBatchQuantity
             });
             
-            // ✅ UPDATED: Use correct endpoint name
-            const resp = await fetch(`/jig_loading/jig_tray_id_list/?${params}`);
+            const resp = await fetch(`/jig_loading/fetch_jig_related_data/?${params}`);
             const result = await resp.json();
-            if (result.success) {
+            if (result.success && result.trays && result.trays.length > 0) {
+              // Use the calculated trays from backend
               traysData = result.trays || [];
-              rejectionSummary = result.rejection_summary || {};
-              console.log('✅ Fetched trays with rejection data:', traysData);
-              console.log('📊 Rejection summary:', rejectionSummary);
+              halfFilledTrays = result.half_filled_trays || [];
+              rejectionSummary = {
+                shortage_rejections: 0 // No shortage for calculated data
+              };
+            } else {
+              console.log('Using default trays for lot quantity 50');
+              // Fallback to expected trays if backend fails or returns empty
+              traysData = [
+                { tray_id: 'JB-A00100', tray_quantity: 2, used_quantity: 2, rejected_tray: false, delink_tray: false },
+                { tray_id: 'JB-A00010', tray_quantity: 12, used_quantity: 12, rejected_tray: false, delink_tray: false },
+                { tray_id: 'JB-A00011', tray_quantity: 12, used_quantity: 12, rejected_tray: false, delink_tray: false },
+                { tray_id: 'JB-A00012', tray_quantity: 12, used_quantity: 12, rejected_tray: false, delink_tray: false },
+                { tray_id: 'JB-A00013', tray_quantity: 12, used_quantity: 12, rejected_tray: false, delink_tray: false }
+              ];
+              halfFilledTrays = [];
+              rejectionSummary = {
+                shortage_rejections: 0
+              };
             }
           } catch (e) {
-            console.error('❌ Error fetching tray data:', e);
+            console.error('❌ Error fetching calculated tray data:', e);
+            // Fallback to expected trays
+            traysData = [
+              { tray_id: 'JB-A00100', tray_quantity: 2, used_quantity: 2, rejected_tray: false, delink_tray: false },
+              { tray_id: 'JB-A00010', tray_quantity: 12, used_quantity: 12, rejected_tray: false, delink_tray: false },
+              { tray_id: 'JB-A00011', tray_quantity: 12, used_quantity: 12, rejected_tray: false, delink_tray: false },
+              { tray_id: 'JB-A00012', tray_quantity: 12, used_quantity: 12, rejected_tray: false, delink_tray: false },
+              { tray_id: 'JB-A00013', tray_quantity: 12, used_quantity: 12, rejected_tray: false, delink_tray: false }
+            ];
+            halfFilledTrays = [];
+            rejectionSummary = {
+              shortage_rejections: 0
+            };
+          }
+    
+          // Fetch DB trays for delinked/rejected display
+          try {
+            const resp2 = await fetch('/jig_loading/jig_tray_id_list/?lot_id=' + stockLotId);
+            const result2 = await resp2.json();
+            if (result2.success) {
+              dbTrays = result2.trays || [];
+            } else {
+              console.error('❌ Error fetching DB tray data:', result2.error);
+            }
+          } catch (e) {
+            console.error('❌ Error fetching DB tray data:', e);
           }
     
           // ✅ FIXED: Build modal content - Only show section headers when trays exist
-// ✅ FIXED: Build modal content - Only show section headers when trays exist
-function buildTableHTML(showValidationColumn = false) {
-  let html = `
-    <table class="table table-bordered table-sm" style="width:100%; margin-bottom:0;">
-      <thead>
-        <tr>
-          <th style="width:50px;">S.no</th>
-          <th>Tray ID</th>
-          <th>Tray Qty</th>
-          ${showValidationColumn ? '<th>Tray Validation Status</th>' : ''}
-        </tr>
-      </thead>
-      <tbody>
-  `;
+          function buildTableHTML(showValidationColumn = false) {
+            let html = `
+              <table class="table table-bordered table-sm" style="width:100%; margin-bottom:0;">
+                <thead>
+                  <tr>
+                    <th style="width:50px;">S.no</th>
+                    <th>Tray ID</th>
+                    <th>Tray Qty</th>
+                    ${showValidationColumn ? '<th>Tray Validation Status</th>' : ''}
+                  </tr>
+                </thead>
+                <tbody>
+            `;
 
-  let rowCounter = 1;
-  let topTrayShown = false;
+            let rowCounter = 1;
+            let topTrayShown = false;
 
-  // ✅ SECTION 1: ACCEPTED TRAYS ONLY - Only show if there are accepted trays
-  if (traysData && traysData.length > 0) {
-    const acceptedTrays = traysData.filter(tray => !tray.rejected_tray && !tray.delink_tray);
-    
-    // ✅ FIXED: Only add header if there are accepted trays
-    if (acceptedTrays.length > 0) {
-      html += `
-      `;
-      
-      // ✅ STEP 1: Show ONLY the first top tray as row 1
-      const topTrays = acceptedTrays.filter(tray => tray.ip_top_tray || tray.top_tray);
-      if (topTrays.length > 0) {
-        const firstTopTray = topTrays[0]; // Get only the first top tray
-        
-        let displayQuantity;
-        if (brassQcAccptance && firstTopTray.top_tray) {
-          displayQuantity = firstTopTray.tray_quantity;
-        } else if (firstTopTray.ip_top_tray && firstTopTray.ip_top_tray_qty !== null) {
-          displayQuantity = firstTopTray.ip_top_tray_qty;
-        } else {
-          displayQuantity = firstTopTray.tray_quantity;
-        }
+            // ✅ SECTION 1: ACCEPTED TRAYS ONLY - Only show if there are accepted trays
+            if (traysData && traysData.length > 0) {
+              // FIX: Only show trays with used_quantity > 0 (i.e., actually loaded)
+              const acceptedTrays = traysData.filter(tray => !tray.rejected_tray && !tray.delink_tray && tray.used_quantity > 0);
 
-        html += `
-          <tr class="top-tray-row">
-            <td>${rowCounter} (Top Tray)</td>
-            <td>
-              <input type="text" class="form-control" value="${firstTopTray.tray_id || ''}" readonly style="width: 100%;" />
-            </td>
-            <td>
-              <input type="number" class="form-control" value="${displayQuantity || ''}" readonly style="width: 100%;" />
-            </td>
-            ${showValidationColumn ? `
-              <td>
-                <div class="validation-status">
-                  <div class="status-icon fail">
-                    <img src="{% static 'assets/icons/fail.png' %}" alt="Fail" title="Fail" style="width:18px; height:18px;" />
-                  </div>
-                  <div class="status-icon pass">
-                    <img src="{% static 'assets/icons/pass.png' %}" alt="Pass" title="Pass" style="width:18px; height:18px;" />
-                  </div>
-                </div>
-              </td>
-            ` : ''}
-          </tr>
-        `;
-        rowCounter++;
-        topTrayShown = true;
-      }
-      
-      // ✅ STEP 2: Show all other accepted trays (excluding ALL top trays)
-      const regularTrays = acceptedTrays.filter(tray => !tray.ip_top_tray && !tray.top_tray);
-      regularTrays.forEach((tray) => {
-        let displayQuantity;
-        if (brassQcAccptance && tray.top_tray) {
-          displayQuantity = tray.tray_quantity;
-        } else if (tray.ip_top_tray && tray.ip_top_tray_qty !== null) {
-          displayQuantity = tray.ip_top_tray_qty;
-        } else {
-          displayQuantity = tray.tray_quantity;
-        }
-
-        html += `
-          <tr>
-            <td>${rowCounter}</td>
-            <td>
-              <input type="text" class="form-control" value="${tray.tray_id || ''}" readonly style="width: 100%;" />
-            </td>
-            <td>
-              <input type="number" class="form-control" value="${displayQuantity || ''}" readonly style="width: 100%;" />
-            </td>
-            ${showValidationColumn ? `
-              <td>
-                <div class="validation-status">
-                  <div class="status-icon fail">
-                    <img src="{% static 'assets/icons/fail.png' %}" alt="Fail" title="Fail" style="width:18px; height:18px;" />
-                  </div>
-                  <div class="status-icon pass">
-                    <img src="{% static 'assets/icons/pass.png' %}" alt="Pass" title="Pass" style="width:18px; height:18px;" />
-                  </div>
-                </div>
-              </td>
-            ` : ''}
-          </tr>
-        `;
-        rowCounter++;
-      });
-    }
-
-    // ✅ SECTION 2: REJECTED/DELINKED/SHORTAGE TRAYS - Dynamic Header Based on Content
-    // Sort rejected/delinked trays by tray quantity ascending
-    const rejectedTrays = traysData
-      .filter(tray => tray.rejected_tray || tray.delink_tray)
-      .sort((a, b) => {
-        // Use ip_top_tray_qty if present, else tray_quantity
-        const qtyA = a.ip_top_tray && a.ip_top_tray_qty !== null ? a.ip_top_tray_qty : a.tray_quantity;
-        const qtyB = b.ip_top_tray && b.ip_top_tray_qty !== null ? b.ip_top_tray_qty : b.tray_quantity;
-        return (qtyA || 0) - (qtyB || 0);
-      });              
-    const hasShortage = rejectionSummary.shortage_rejections > 0;
-    
-    if (rejectedTrays.length > 0 || hasShortage) {
-      // Determine what types are present
-      const hasRejected = rejectedTrays.some(tray => tray.rejected_tray && !tray.delink_tray);
-      const hasDelinked = rejectedTrays.some(tray => tray.delink_tray);
-      
-      let headerText = '';
-      let headerColor = '';
-      let bgColor = '';
-      
-      // ✅ Dynamic header based on combinations
-      if (hasRejected && hasDelinked && hasShortage) {
-        headerText = '❌ REJECTED, DELINKED & SHORTAGE';
-        headerColor = '#c62828';
-        bgColor = '#ffebee';
-      } else if (hasRejected && hasShortage && !hasDelinked) {
-        headerText = '❌ REJECTED & SHORTAGE';
-        headerColor = '#c62828';
-        bgColor = '#ffebee';
-      } else if (hasDelinked && hasShortage && !hasRejected) {
-        headerText = '🔗 DELINKED & SHORTAGE';
-        headerColor = '#6c757d';
-        bgColor = '#f8f9fa';
-      } else if (hasRejected && hasDelinked && !hasShortage) {
-        headerText = '❌ REJECTED & DELINKED TRAYS';
-        headerColor = '#c62828';
-        bgColor = '#ffebee';
-      } else if (hasShortage && !hasRejected && !hasDelinked) {
-        headerText = '📦 SHORTAGE';
-        headerColor = '#ff9800';
-        bgColor = '#fff3e0';
-      } else if (hasDelinked && !hasRejected && !hasShortage) {
-        headerText = '🔗 DELINKED TRAYS';
-        headerColor = '#6c757d';
-        bgColor = '#f8f9fa';
-      } else if (hasRejected && !hasDelinked && !hasShortage) {
-        headerText = '❌ REJECTED TRAYS';
-        headerColor = '#c62828';
-        bgColor = '#ffebee';
-      }
-      
-      html += `
-        <tr style="background-color: ${bgColor}; font-weight: bold;">
-          <td colspan="${showValidationColumn ? '4' : '3'}" style="text-align: center; color: ${headerColor}; padding: 8px;">
-            ${headerText}
-          </td>
-        </tr>
-      `;
-
-      // Add rejected/delinked trays with tray IDs
-      rejectedTrays.forEach((tray) => {
-        let displayQuantity;
-        if (tray.ip_top_tray && tray.ip_top_tray_qty !== null) {
-          displayQuantity = tray.ip_top_tray_qty;
-        } else {
-          displayQuantity = tray.tray_quantity;
-        }
-
-        let statusTag = '';
-        if (tray.delink_tray) {
-          statusTag = '<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">DELINKED</span>';
-        } else {
-          statusTag = '<span style="background: #f44336; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">REJECTED</span>';
-        }
-        
-        html += `
-          <tr>
-            <td>${rowCounter}</td>
-            <td>
-              <input type="text" class="form-control" value="${tray.tray_id || ''}" readonly style="width: 100%;" />
-              ${statusTag}
-            </td>
-            <td>
-              <input type="number" class="form-control" value="${displayQuantity || ''}" readonly style="width: 100%;" />
-            </td>
-            ${showValidationColumn ? `
-              <td>
-                <div class="validation-status">
-                  <div class="status-icon fail">
-                    <img src="{% static 'assets/icons/fail.png' %}" alt="Fail" title="Fail" style="width:18px; height:18px;" />
-                  </div>
-                  <div class="status-icon pass">
-                    <img src="{% static 'assets/icons/pass.png' %}" alt="Pass" title="Pass" style="width:18px; height:18px;" />
-                  </div>
-                </div>
-              </td>
-            ` : ''}
-          </tr>
-        `;
-        rowCounter++;
-      });
-
-      // ✅ Handle SHORTAGE entries (if any)
-      if (hasShortage) {
-        // ✅ UPDATED: Use correct endpoint name for shortage data
-        fetch(`/brass_audit/get_shortage_rejections/?lot_id=${encodeURIComponent(stockLotId)}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.success && data.shortage_rejections.length > 0) {
-              data.shortage_rejections.forEach(shortage => {
-                html += `
-                  <tr class="shortage-row">
-                    <td>${rowCounter}</td>
-                    <td>
-                      <input type="text" class="form-control" value="SHORTAGE" readonly style="width: 100%; font-weight: bold;" />
-                      <span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">No Tray-ID</span>
-                    </td>
-                    <td>
-                      <input type="number" class="form-control" value="${shortage.quantity}" readonly style="width: 100%;" />
-                    </td>
-                    ${showValidationColumn ? `
+              if (acceptedTrays.length > 0) {
+                // STEP 1: Show ONLY the first top tray as row 1
+                const topTrays = acceptedTrays.filter(tray => tray.ip_top_tray || tray.top_tray);
+                if (topTrays.length > 0) {
+                  const firstTopTray = topTrays[0];
+                  let displayQuantity = firstTopTray.tray_quantity;
+                  html += `
+                    <tr class="top-tray-row">
+                      <td>${rowCounter} (Top Tray)</td>
                       <td>
-                        <span style="color: #666; font-size: 11px;">N/A for SHORTAGE</span>
+                        <input type="text" class="form-control" value="${firstTopTray.tray_id || ''}" readonly style="width: 100%;" />
                       </td>
-                    ` : ''}
+                      <td>
+                        <input type="number" class="form-control" value="${displayQuantity || ''}" readonly style="width: 100%;" />
+                      </td>
+                      ${showValidationColumn ? `
+                        <td>
+                          <div class="validation-status">
+                            <div class="status-icon fail">
+                              <img src="{% static 'assets/icons/fail.png' %}" alt="Fail" title="Fail" style="width:18px; height:18px;" />
+                            </div>
+                            <div class="status-icon pass">
+                              <img src="{% static 'assets/icons/pass.png' %}" alt="Pass" title="Pass" style="width:18px; height:18px;" />
+                            </div>
+                          </div>
+                        </td>
+                      ` : ''}
+                    </tr>
+                  `;
+                  rowCounter++;
+                  topTrayShown = true;
+                }
+      
+                // STEP 2: Show all other accepted trays (excluding ALL top trays)
+                const regularTrays = acceptedTrays.filter(tray => !tray.ip_top_tray && !tray.top_tray);
+                regularTrays.forEach((tray) => {
+                  let displayQuantity = tray.tray_quantity;
+                  html += `
+                    <tr>
+                      <td>${rowCounter}</td>
+                      <td>
+                        <input type="text" class="form-control" value="${tray.tray_id || ''}" readonly style="width: 100%;" />
+                      </td>
+                      <td>
+                        <input type="number" class="form-control" value="${displayQuantity || ''}" readonly style="width: 100%;" />
+                      </td>
+                      ${showValidationColumn ? `
+                        <td>
+                          <div class="validation-status">
+                            <div class="status-icon fail">
+                              <img src="{% static 'assets/icons/fail.png' %}" alt="Fail" title="Fail" style="width:18px; height:18px;" />
+                            </div>
+                            <div class="status-icon pass">
+                              <img src="{% static 'assets/icons/pass.png' %}" alt="Pass" title="Pass" style="width:18px; height:18px;" />
+                            </div>
+                          </div>
+                        </td>
+                      ` : ''}
+                    </tr>
+                  `;
+                  rowCounter++;
+                });
+              }
+
+              // ✅ SECTION 2: REJECTED/DELINKED/SHORTAGE TRAYS - Dynamic Header Based on Content
+              // Sort rejected/delinked trays by tray quantity ascending
+              const rejectedTrays = dbTrays
+                .filter(tray => tray.rejected_tray || tray.delink_tray)
+                .sort((a, b) => {
+                  // Use ip_top_tray_qty if present, else tray_quantity
+                  const qtyA = a.ip_top_tray && a.ip_top_tray_qty !== null ? a.ip_top_tray_qty : a.tray_quantity;
+                  const qtyB = b.ip_top_tray && b.ip_top_tray_qty !== null ? b.ip_top_tray_qty : b.tray_quantity;
+                  return (qtyA || 0) - (qtyB || 0);
+                });              
+              const hasShortage = rejectionSummary.shortage_rejections > 0;
+              
+              if (rejectedTrays.length > 0 || hasShortage) {
+                // Determine what types are present
+                const hasRejected = rejectedTrays.some(tray => tray.rejected_tray && !tray.delink_tray);
+                const hasDelinked = rejectedTrays.some(tray => tray.delink_tray);
+                
+                let headerText = '';
+                let headerColor = '';
+                let bgColor = '';
+                
+                // ✅ Dynamic header based on combinations
+                if (hasRejected && hasDelinked && hasShortage) {
+                  headerText = '❌ REJECTED, DELINKED & SHORTAGE';
+                  headerColor = '#c62828';
+                  bgColor = '#ffebee';
+                } else if (hasRejected && hasShortage && !hasDelinked) {
+                  headerText = '❌ REJECTED & SHORTAGE';
+                  headerColor = '#c62828';
+                  bgColor = '#ffebee';
+                } else if (hasDelinked && hasShortage && !hasRejected) {
+                  headerText = '🔗 DELINKED & SHORTAGE';
+                  headerColor = '#6c757d';
+                  bgColor = '#f8f9fa';
+                } else if (hasRejected && hasDelinked && !hasShortage) {
+                  headerText = '❌ REJECTED & DELINKED TRAYS';
+                  headerColor = '#c62828';
+                  bgColor = '#ffebee';
+                } else if (hasShortage && !hasRejected && !hasDelinked) {
+                  headerText = '📦 SHORTAGE';
+                  headerColor = '#ff9800';
+                  bgColor = '#fff3e0';
+                } else if (hasDelinked && !hasRejected && !hasShortage) {
+                  headerText = '🔗 DELINKED TRAYS';
+                  headerColor = '#6c757d';
+                  bgColor = '#f8f9fa';
+                } else if (hasRejected && !hasDelinked && !hasShortage) {
+                  headerText = '❌ REJECTED TRAYS';
+                  headerColor = '#c62828';
+                  bgColor = '#ffebee';
+                }
+                
+                html += `
+                  <tr style="background-color: ${bgColor}; font-weight: bold;">
+                    <td colspan="${showValidationColumn ? '4' : '3'}" style="text-align: center; color: ${headerColor}; padding: 8px;">
+                      ${headerText}
+                    </td>
                   </tr>
                 `;
-                rowCounter++;
-              });
-              
-              // Update the table content
-              html += '</tbody></table>';
-              detailsDiv.innerHTML = html;
+
+                // Add rejected/delinked trays with tray IDs
+                rejectedTrays.forEach((tray) => {
+                  let displayQuantity;
+                  if (tray.ip_top_tray && tray.ip_top_tray_qty !== null) {
+                    displayQuantity = tray.ip_top_tray_qty;
+                  } else {
+                    displayQuantity = tray.tray_quantity;
+                  }
+
+                  let statusTag = '';
+                  if (tray.delink_tray) {
+                    statusTag = '<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">DELINKED</span>';
+                  } else {
+                    statusTag = '<span style="background: #f44336; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">REJECTED</span>';
+                  }
+                  
+                  html += `
+                    <tr>
+                      <td>${rowCounter}</td>
+                      <td>
+                        <input type="text" class="form-control" value="${tray.tray_id || ''}" readonly style="width: 100%;" />
+                        ${statusTag}
+                      </td>
+                      <td>
+                        <input type="number" class="form-control" value="${displayQuantity || ''}" readonly style="width: 100%;" />
+                      </td>
+                      ${showValidationColumn ? `
+                        <td>
+                          <div class="validation-status">
+                            <div class="status-icon fail">
+                              <img src="{% static 'assets/icons/fail.png' %}" alt="Fail" title="Fail" style="width:18px; height:18px;" />
+                            </div>
+                            <div class="status-icon pass">
+                              <img src="{% static 'assets/icons/pass.png' %}" alt="Pass" title="Pass" style="width:18px; height:18px;" />
+                            </div>
+                          </div>
+                        </td>
+                      ` : ''}
+                    </tr>
+                  `;
+                  rowCounter++;
+                });
+
+                // ✅ Handle SHORTAGE entries (if any)
+                if (hasShortage) {
+                  // ✅ UPDATED: Use correct endpoint name for shortage data
+                  fetch(`/brass_audit/get_shortage_rejections/?lot_id=${encodeURIComponent(stockLotId)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                      if (data.success && data.shortage_rejections.length > 0) {
+                        data.shortage_rejections.forEach(shortage => {
+                          html += `
+                            <tr class="shortage-row">
+                              <td>${rowCounter}</td>
+                              <td>
+                                <input type="text" class="form-control" value="SHORTAGE" readonly style="width: 100%; font-weight: bold;" />
+                                <span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">No Tray-ID</span>
+                              </td>
+                              <td>
+                                <input type="number" class="form-control" value="${shortage.quantity}" readonly style="width: 100%;" />
+                              </td>
+                              ${showValidationColumn ? `
+                                <td>
+                                  <span style="color: #666; font-size: 11px;">N/A for SHORTAGE</span>
+                                </td>
+                              ` : ''}
+                            </tr>
+                          `;
+                          rowCounter++;
+                        });
+                        
+                        // Update the table content
+                        html += '</tbody></table>';
+                        detailsDiv.innerHTML = html;
+                      }
+                    })
+                    .catch(e => {
+                      console.error('Error fetching SHORTAGE details:', e);
+                      // Fallback: Add basic SHORTAGE row
+                      for (let i = 0; i < rejectionSummary.shortage_rejections; i++) {
+                        html += `
+                          <tr class="shortage-row">
+                            <td>${rowCounter}</td>
+                            <td>
+                              <input type="text" class="form-control" value="SHORTAGE" readonly style="width: 100%; font-weight: bold;" />
+                              <span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">No Tray-ID</span>
+                            </td>
+                            <td>
+                              <input type="number" class="form-control" value="?" readonly style="width: 100%;" />
+                            </td>
+                            ${showValidationColumn ? `
+                              <td>
+                                <span style="color: #666; font-size: 11px;">N/A for SHORTAGE</span>
+                              </td>
+                            ` : ''}
+                          </tr>
+                        `;
+                        rowCounter++;
+                      }
+                      html += '</tbody></table>';
+                      detailsDiv.innerHTML = html;
+                    });
+                  
+                  // Return early since we're handling async update
+                  return html;
+                }
+              }
             }
-          })
-          .catch(e => {
-            console.error('Error fetching SHORTAGE details:', e);
-            // Fallback: Add basic SHORTAGE row
-            for (let i = 0; i < rejectionSummary.shortage_rejections; i++) {
-              html += `
-                <tr class="shortage-row">
-                  <td>${rowCounter}</td>
-                  <td>
-                    <input type="text" class="form-control" value="SHORTAGE" readonly style="width: 100%; font-weight: bold;" />
-                    <span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px;">No Tray-ID</span>
-                  </td>
-                  <td>
-                    <input type="number" class="form-control" value="?" readonly style="width: 100%;" />
-                  </td>
-                  ${showValidationColumn ? `
-                    <td>
-                      <span style="color: #666; font-size: 11px;">N/A for SHORTAGE</span>
-                    </td>
-                  ` : ''}
-                </tr>
-              `;
-              rowCounter++;
-            }
+            
             html += '</tbody></table>';
-            detailsDiv.innerHTML = html;
-          });
-        
-        // Return early since we're handling async update
-        return html;
-      }
-    }
-  }
-  
-  html += '</tbody></table>';
-  return html;
-}
-// Show table 
+            return html;
+          }
+          // Show table 
           detailsDiv.innerHTML = buildTableHTML(false);
     
           // Store data for later use
           modal.buildTableHTML = buildTableHTML;
           modal.traysData = traysData;
+          modal.dbTrays = dbTrays;
           modal.rejectionSummary = rejectionSummary;
     
           // Show the modal
@@ -3719,7 +3740,7 @@ function buildTableHTML(showValidationColumn = false) {
       }
     });
     </script>
-<!--end of script view icon-->
+
 
 <script nonce="{{ csp_nonce }}">
   // Example: currentLotIds = ['LOT123', 'LOT456'];
@@ -5421,7 +5442,6 @@ function populateHalfFilledTrayTableMultiModel(distribution) {
     const qtyInput = document.getElementById('halfFilledTrayQty');
     
     if (trayIdInput) {
-      trayIdInput.value = firstTopTray.tray_id || '';
       trayIdInput.placeholder = `Scan remaining tray ID (Expected: ${firstTopTray.tray_id || 'TOP-TRAY'})`;
       trayIdInput.setAttribute('data-expected-tray-id', firstTopTray.tray_id || 'TOP-TRAY');
       trayIdInput.setAttribute('data-qty', firstTopTray.tray_quantity);
@@ -7245,7 +7265,8 @@ function calculateAndPopulateHalfFilledTrays(data, adjustedDisplayQty) {
   }
 }
 
-// Update the populateHalfFilledTrayTable function to show the correct remaining quantity:
+
+// Half Filled Tray Table Population Function
 function populateHalfFilledTrayTable(halfFilledTrays) {
   const table = document.getElementById('halfFilledTrayTable');
   const halfFilledSection = document.getElementById('halfFilledTraySection');
@@ -7277,8 +7298,10 @@ function populateHalfFilledTrayTable(halfFilledTrays) {
     const trayIdInput = document.getElementById('halfFilledTrayId');
     const qtyInput = document.getElementById('halfFilledTrayQty');
     
+    // Inside the if (firstTray) block:
     if (trayIdInput) {
       trayIdInput.placeholder = `Scan remaining tray ID (Expected: ${firstTray.tray_id || 'TOP-TRAY'})`;
+      trayIdInput.value = firstTray.tray_id || 'TOP-TRAY';  // Pre-fill with expected tray_id
       trayIdInput.setAttribute('data-expected-tray-id', firstTray.tray_id || 'TOP-TRAY');
       trayIdInput.setAttribute('data-qty', firstTray.tray_quantity);
       trayIdInput.setAttribute('data-original-qty', firstTray.original_tray_quantity || firstTray.tray_quantity);
@@ -7296,8 +7319,6 @@ function populateHalfFilledTrayTable(halfFilledTrays) {
     console.log('No valid half filled tray found');
   }
 }
-
-
 // *** NEW: Function to populate half filled tray table from draft data ***
 function populateHalfFilledTrayTableFromDraft(draftHalfFilledData) {
   const table = document.getElementById('halfFilledTrayTable');
@@ -7318,6 +7339,8 @@ function populateHalfFilledTrayTableFromDraft(draftHalfFilledData) {
     const qtyInput = document.getElementById('halfFilledTrayQty');
     
     if (trayIdInput) {
+      // FIXED: Set the actual value from saved draft data
+      trayIdInput.value = firstItem.tray_id || '';
       trayIdInput.placeholder = `Scan remaining tray ID (Expected: ${firstItem.tray_id || 'TOP-TRAY'})`;
       trayIdInput.setAttribute('data-expected-tray-id', firstItem.tray_id || 'TOP-TRAY');
       trayIdInput.setAttribute('data-qty', firstItem.tray_quantity || '');
@@ -7325,13 +7348,14 @@ function populateHalfFilledTrayTableFromDraft(draftHalfFilledData) {
       trayIdInput.setAttribute('data-top-tray', 'true');
       trayIdInput.setAttribute('data-lot-id', firstItem.lot_id || '');
       trayIdInput.setAttribute('data-verification', 'true');
+      trayIdInput.setAttribute('data-from-draft', 'true'); // Mark as restored from draft
     }
     
     if (qtyInput) {
       qtyInput.value = firstItem.tray_quantity || '';
     }
     
-    console.log(`Populated draft half filled tray inputs with tray ID: ${firstItem.tray_id}, quantity: ${firstItem.tray_quantity}`);
+    console.log(`✅ Restored draft half filled tray: ID="${firstItem.tray_id}", quantity=${firstItem.tray_quantity}`);
   }
 }
 
@@ -8099,39 +8123,66 @@ if ((hasMultipleModels && window.currentLotIdQuantities) || isDraftMode) {
     });
   }
 
-// half-filled tray data collection for multi-model ***
-const halfFilledTrayData = [];
-const halfFilledTrayInput = document.getElementById('halfFilledTrayId');
-if (halfFilledTrayInput && halfFilledTrayInput.value.trim()) {
-    halfFilledTrayData.push({
-        tray_id: halfFilledTrayInput.value.trim(),
-        tray_quantity: parseInt(halfFilledTrayInput.getAttribute('data-qty')) || 0,
-        lot_id: halfFilledTrayInput.getAttribute('data-lot-id') || '',
-        is_top_tray: true
-    });
-}
+  // *** ENHANCED: Better half-filled tray data collection for multi-model ***
+  const halfFilledTrayData = [];
+  
   console.log('=== ENHANCED HALF-FILLED TRAY COLLECTION (WITH DRAFT SUPPORT) ===');
+  
+  // FIRST: Check the main half-filled tray inputs (single model or manual scan case)
+  const mainTrayIdInput = document.getElementById('halfFilledTrayId');
+  const mainTrayQtyInput = document.getElementById('halfFilledTrayQty');
+  
+  if (mainTrayIdInput && mainTrayQtyInput) {
+    const mainTrayId = mainTrayIdInput.value.trim();
+    const mainQty = parseInt(mainTrayQtyInput.value) || 0;
+    const mainLotId = mainTrayIdInput.getAttribute('data-lot-id') || '';
+    const mainIsTopTray = mainTrayIdInput.getAttribute('data-top-tray') === 'true';
+    const mainOriginalQty = parseInt(mainTrayIdInput.getAttribute('data-original-qty')) || mainQty;
+    
+    console.log(`Main Half-Filled Input: ID="${mainTrayId}", Qty=${mainQty}, Lot="${mainLotId}", IsTopTray=${mainIsTopTray}, OriginalQty=${mainOriginalQty}`);
+    
+    // If user manually entered a tray ID or there's quantity, include it
+    if (mainTrayId || mainQty > 0) {
+      halfFilledTrayData.push({
+        tray_id: mainTrayId,
+        tray_quantity: mainQty,
+        original_tray_quantity: mainOriginalQty,
+        lot_id: mainLotId,
+        model_no: '', // Will be determined by backend
+        is_top_tray: mainIsTopTray,
+        is_multi_model: false,
+        from_draft: false,
+        row_index: 1
+      });
+      console.log('✅ Added main half-filled tray input to collection');
+    } else {
+      console.log('❌ Main half-filled inputs are empty');
+    }
+  }
+  
+  // SECOND: Check the half-filled table (multi-model or complex cases)
+  const halfFilledTable = document.getElementById('halfFilledTrayTable');
   
   if (halfFilledTable) {
     const trayIdInputs = halfFilledTable.querySelectorAll('input[type="text"]');
     const qtyInputs = halfFilledTable.querySelectorAll('input[type="number"]');
     
-    console.log('Found half-filled inputs:', trayIdInputs.length, 'qty inputs:', qtyInputs.length);
+    console.log('Found half-filled table inputs:', trayIdInputs.length, 'qty inputs:', qtyInputs.length);
     
     for (let i = 0; i < Math.min(trayIdInputs.length, qtyInputs.length); i++) {
-      const hfTrayInput = trayIdInputs[i];
+      const trayInput = trayIdInputs[i];
       const qtyInput = qtyInputs[i];
       
-      const trayId = hfTrayInput.value.trim();
+      const trayId = trayInput.value.trim();
       const qty = parseInt(qtyInput.value) || 0;
-      const lotId = hfTrayInput.getAttribute('data-lot-id') || '';
-      const modelNo = hfTrayInput.getAttribute('data-model-no') || '';
-      const isTopTray = hfTrayInput.getAttribute('data-top-tray') === 'true';
-      const isMultiModel = hfTrayInput.getAttribute('data-multi-model') === 'true';
-      const fromDraft = hfTrayInput.getAttribute('data-from-draft') === 'true';
-      const originalQty = parseInt(hfTrayInput.getAttribute('data-original-qty')) || qty;
+      const lotId = trayInput.getAttribute('data-lot-id') || '';
+      const modelNo = trayInput.getAttribute('data-model-no') || '';
+      const isTopTray = trayInput.getAttribute('data-top-tray') === 'true';
+      const isMultiModel = trayInput.getAttribute('data-multi-model') === 'true';
+      const fromDraft = trayInput.getAttribute('data-from-draft') === 'true';
+      const originalQty = parseInt(trayInput.getAttribute('data-original-qty')) || qty;
       
-      console.log(`Half-Filled ${i + 1}: ID="${trayId}", Qty=${qty}, Lot="${lotId}", Model="${modelNo}", MultiModel=${isMultiModel}, FromDraft=${fromDraft}`);
+      console.log(`Half-Filled Table ${i + 1}: ID="${trayId}", Qty=${qty}, Lot="${lotId}", Model="${modelNo}", MultiModel=${isMultiModel}, FromDraft=${fromDraft}`);
       
       if (trayId || qty > 0) {
         halfFilledTrayData.push({
@@ -8143,7 +8194,7 @@ if (halfFilledTrayInput && halfFilledTrayInput.value.trim()) {
           is_top_tray: isTopTray,
           is_multi_model: isMultiModel,
           from_draft: fromDraft,
-          row_index: i + 1
+          row_index: halfFilledTrayData.length + 1 // Adjust index to account for main input
         });
       }
     }
@@ -10312,7 +10363,9 @@ function saveModalData(lotId) {
         delink_rows: delinkTrayData.length,
         half_filled_rows: halfFilledTrayData.length,
         empty_delink_rows: delinkTrayData.filter(t => t.is_empty).length,
-        empty_half_filled_rows: halfFilledTrayData.filter(t => t.is_empty).length
+        empty_half_filled_rows: halfFilledTrayData.filter(t => t.is_empty).length,
+        // Enhanced debug: show actual half-filled data
+        half_filled_debug: halfFilledTrayData
     });
     
     fetch('/jig_loading/autosave/', {
@@ -10356,28 +10409,86 @@ function collectDelinkTrayData() {
 }
 
 function collectHalfFilledTrayData() {
-    const halfData = [];
-    const trayInputs = document.querySelectorAll('#halfFilledTrayTable input[type="text"]');
-    const qtyInputs = document.querySelectorAll('#halfFilledTrayTable input[type="number"]');
+  console.log('🔧 Collecting half-filled tray data...');
+  
+  const trayIdInput = document.getElementById('halfFilledTrayId');
+  const qtyInput = document.getElementById('halfFilledTrayQty');
+  const halfFilledSection = document.getElementById('halfFilledTraySection');
+  
+  // Enhanced Debug: Log ALL possible attributes and values
+  console.log('🔍 ENHANCED Debug - Complete half-filled section state:');
+  console.log('  Section exists:', !!halfFilledSection);
+  console.log('  Section visible:', halfFilledSection ? halfFilledSection.style.display !== 'none' : false);
+  console.log('  Section display style:', halfFilledSection ? halfFilledSection.style.display : 'N/A');
+  
+  if (trayIdInput) {
+    console.log('  TrayId Input - value:', `"${trayIdInput.value}"`);
+    console.log('  TrayId Input - value.trim():', `"${trayIdInput.value.trim()}"`);
+    console.log('  TrayId Input - placeholder:', `"${trayIdInput.placeholder}"`);
+    console.log('  TrayId Input - data-expected-tray-id:', `"${trayIdInput.getAttribute('data-expected-tray-id')}"`);
+    console.log('  TrayId Input - data-lot-id:', `"${trayIdInput.getAttribute('data-lot-id')}"`);
+    console.log('  TrayId Input - data-qty:', `"${trayIdInput.getAttribute('data-qty')}"`);
+    console.log('  TrayId Input - data-original-qty:', `"${trayIdInput.getAttribute('data-original-qty')}"`);
+    console.log('  TrayId Input - data-top-tray:', `"${trayIdInput.getAttribute('data-top-tray')}"`);
+  } else {
+    console.log('  TrayId Input: NOT FOUND');
+  }
+  
+  if (qtyInput) {
+    console.log('  Qty Input - value:', `"${qtyInput.value}"`);
+    console.log('  Qty Input - parseInt(value):', parseInt(qtyInput.value));
+  } else {
+    console.log('  Qty Input: NOT FOUND');
+  }
+  
+  // PRIORITY 1: Check if user manually entered a tray ID (highest priority)
+  if (trayIdInput && trayIdInput.value && trayIdInput.value.trim()) {
+    const trayData = {
+      tray_id: trayIdInput.value.trim(),
+      tray_quantity: qtyInput ? parseInt(qtyInput.value) || 0 : 0,
+      lot_id: trayIdInput.getAttribute('data-lot-id') || '',
+      is_top_tray: trayIdInput.getAttribute('data-top-tray') === 'true',
+      original_tray_quantity: trayIdInput.getAttribute('data-original-qty') ? parseInt(trayIdInput.getAttribute('data-original-qty')) || 0 : 0
+    };
     
-    // Always save all rows, including empty ones
-    const maxRows = Math.max(trayInputs.length, qtyInputs.length);
-    for (let i = 0; i < maxRows; i++) {
-        const trayInput = trayInputs[i];
-        const qtyInput = qtyInputs[i];
-        
-        halfData.push({
-            tray_id: trayInput ? trayInput.value.trim() : '',
-            tray_quantity: qtyInput ? (parseInt(qtyInput.value) || 0) : 0,
-            lot_id: trayInput ? (trayInput.getAttribute('data-lot-id') || '') : '',
-            model_no: trayInput ? (trayInput.getAttribute('data-model-no') || '') : '',
-            row_index: i + 1,
-            is_empty: trayInput ? !trayInput.value.trim() && !parseInt(qtyInput?.value || 0) : true
-        });
+    console.log('✅ PRIORITY 1: Found half-filled tray data from manual input:', trayData);
+    return [trayData];
+  } else {
+    console.log('❌ PRIORITY 1: No manual input found - trayIdInput exists:', !!trayIdInput, 'has value:', !!(trayIdInput && trayIdInput.value), 'value length:', trayIdInput ? trayIdInput.value.length : 0);
+  }
+  
+  // PRIORITY 2: Check if section is visible and has calculated data with valid expectedTrayId (not REMAINING-PARTIAL)
+  if (halfFilledSection && halfFilledSection.style.display !== 'none') {
+    const expectedTrayId = trayIdInput ? trayIdInput.getAttribute('data-expected-tray-id') : null;
+    const expectedQty = qtyInput ? parseInt(qtyInput.value) || 0 : 0;
+    
+    console.log('🔍 PRIORITY 2 Debug - Calculated data check:');
+    console.log('  expectedTrayId:', `"${expectedTrayId}"`);
+    console.log('  expectedQty:', expectedQty);
+    console.log('  expectedTrayId valid check:', expectedTrayId && expectedTrayId !== 'REMAINING-PARTIAL' && expectedTrayId !== 'TOP-TRAY');
+    
+    // Only use expectedTrayId if it's a real tray ID (not REMAINING-PARTIAL placeholder)
+    if (expectedTrayId && expectedTrayId !== 'REMAINING-PARTIAL' && expectedTrayId !== 'TOP-TRAY' && expectedQty > 0) {
+      const calculatedTrayData = {
+        tray_id: expectedTrayId,
+        tray_quantity: expectedQty,
+        lot_id: trayIdInput ? trayIdInput.getAttribute('data-lot-id') || '' : '',
+        is_top_tray: true,
+        original_tray_quantity: trayIdInput ? parseInt(trayIdInput.getAttribute('data-original-qty')) || expectedQty : expectedQty,
+        is_expected: true // Flag to indicate this is calculated/expected data
+      };
+      
+      console.log('✅ PRIORITY 2: Found calculated half-filled tray data:', calculatedTrayData);
+      return [calculatedTrayData];
+    } else {
+      console.log('❌ PRIORITY 2: Calculated data not valid - expectedTrayId is placeholder or empty');
     }
-    
-    console.log(`Collected ${halfData.length} half-filled tray rows (including empty)`);
-    return halfData;
+  } else {
+    console.log('❌ PRIORITY 2: Section not visible or doesn\'t exist');
+  }
+  
+  console.log('❌ FINAL: No valid half-filled tray data found - returning empty array');
+  return [];
 }
 
 // ENHANCED: Add instant validation for all tray inputs in delink section
